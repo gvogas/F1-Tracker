@@ -156,91 +156,102 @@ var LeaderboardPageModel = (function () {
         $("#driversBody").empty();
 
         $.when(
-            F1Data.getDriversForSession(sessionKey),                 // normalized array
+            F1Data.getDriversForSession(sessionKey),
             OpenF1API.sessionResult({ session_key: sessionKey })
         )
-        .done(function (normDrivers, resultRes) {
-        var results = resultRes[0] || [];
+        .done(function (normRes, resultRes) {
 
-        var byNum = {};
-        for (var i = 0; i < normDrivers.length; i++) {
+            // normRes might be either:
+            // 1) normalized array (if F1Data returns a plain Promise), OR
+            // 2) [data, status, xhr] (if F1Data uses $.ajax / $.getJSON)
+            var normDrivers = Array.isArray(normRes) ? normRes : (normRes && normRes[0]) || [];
+
+            // sessionResult is jQuery ajax => [data, status, xhr]
+            var results = (resultRes && resultRes[0]) || [];
+
+            var byNum = {};
+            for (var i = 0; i < normDrivers.length; i++) {
             byNum[String(normDrivers[i].number)] = normDrivers[i];
-        }
+            }
 
-        render(results, byNum);
+            render(results, byNum);
             $("#lbMsg").text(results.length ? "" : "No results found for this session.");
         })
-        .fail(function () {
+        .fail(function (xhr) {
+            console.error("loadResultsForSession fail:", xhr);
             $("#lbMsg").text("Failed to load drivers/results.");
         });
-    }
+        }
 
-    function render(results, byNum) {
-        var prefs = UserPrefsModel.load();
-        var favDriver = (prefs.favoriteDriver || "").trim().toLowerCase();
-        var favTeam = (prefs.favoriteTeam || "").trim().toLowerCase();
 
-        results = (results || []).slice().sort(function (a, b) {
-        return (a.position || 999) - (b.position || 999);
-        });
+        function render(results, byNum) {
+            var prefs = UserPrefsModel.load();
+            var favDriver = (prefs.favoriteDriver || "").trim().toLowerCase();
+            var favTeam = (prefs.favoriteTeam || "").trim().toLowerCase();
 
-        var $body = $("#driversBody").empty();
+            results = (results || []).slice().sort(function (a, b) {
+                return (a.position || 999) - (b.position || 999);
+            });
 
-        for (var i = 0; i < results.length; i++) {
-            var r = results[i];
-            var num = String(r.driver_number || "");
-            var d = byNum[num] || {};
+            var $body = $("#driversBody").empty();
 
-            var fullName = (d.fullName || "").trim() || ("#" + num);
-            var team = (d.teamName || "").trim();
-            var status = r.dsq ? "DSQ" : (r.dns ? "DNS" : (r.dnf ? "DNF" : "OK"));
+            for (var i = 0; i < results.length; i++) {
+                var r = results[i];
+                var num = String(r.driver_number || "");
+                var d = byNum[num] || {};
 
-            var gap = (r.gap_to_leader === 0 || r.gap_to_leader === "0" || r.gap_to_leader === null)
+                var fullName = (d.fullName || "").trim() || ("#" + num);
+                var team = (d.teamName || "").trim();
+                var status = r.dsq ? "DSQ" : (r.dns ? "DNS" : (r.dnf ? "DNF" : "OK"));
+
+                var gap = (r.gap_to_leader === 0 || r.gap_to_leader === "0" || r.gap_to_leader === null)
                 ? "—"
                 : String(r.gap_to_leader);
 
-            var isFav =
+                var isFav =
                 (favDriver && fullName.toLowerCase() === favDriver) ||
                 (favTeam && team.toLowerCase() === favTeam);
 
-            var $tr = $("<tr>").toggleClass("lb-row-fav", isFav);
+                var $tr = $("<tr>").toggleClass("lb-row-fav", isFav);
 
-            $tr.append($("<td>").text(r.position || ""));
+                $tr.append($("<td>").text(r.position || ""));
 
-            var $driverCell = $("<td>").addClass("lb-driver-cell");
-            if (d.headshotUrl) {
+                var $driverCell = $("<td>").addClass("lb-driver-cell");
+                if (d.headshotUrl) {
                 $driverCell.append(
-                $("<img>").addClass("lb-headshot").attr("src", d.headshotUrl).attr("alt", fullName)
+                    $("<img>").addClass("lb-headshot").attr("src", d.headshotUrl).attr("alt", fullName)
                 );
-            }   
+                }
 
-            var $driverText = $("<div>").addClass("lb-driver-text");
-            $driverText.append($("<div>").addClass("lb-driver-name").text(fullName));
+                var $driverText = $("<div>").addClass("lb-driver-text");
+                $driverText.append($("<div>").addClass("lb-driver-name").text(fullName));
 
-            if (d.acronym || d.country || d.number) {
+                if (d.acronym || d.country || d.number) {
                 $driverText.append(
-                $("<div>").addClass("lb-driver-sub muted")
-                    .text([(d.country || ""), (d.acronym || ""), (d.number ? ("#" + d.number) : "")]
-                    .filter(Boolean).join(" • "))
+                    $("<div>").addClass("lb-driver-sub muted").text(
+                    [(d.country || ""), (d.acronym || ""), (d.number ? ("#" + d.number) : "")]
+                        .filter(Boolean)
+                        .join(" • ")
+                    )
                 );
-            }
+                }
 
-            $driverCell.append($driverText);
-            $tr.append($driverCell);
+                $driverCell.append($driverText);
+                $tr.append($driverCell);
 
-            var $teamCell = $("<td>");
-            if (d.teamColour) {
+                var $teamCell = $("<td>");
+                if (d.teamColour) {
                 $teamCell.append($("<span>").addClass("lb-team-dot").css("background", "#" + d.teamColour));
+                }
+                $teamCell.append(document.createTextNode(team || "—"));
+                $tr.append($teamCell);
+
+                $tr.append($("<td>").addClass("right").text(gap));
+                $tr.append($("<td>").addClass("right").text(status));
+
+                $body.append($tr);
             }
-            $teamCell.append(document.createTextNode(team || "—"));
-            $tr.append($teamCell);
-
-            $tr.append($("<td>").addClass("right").text(gap));
-            $tr.append($("<td>").addClass("right").text(status));
-
-            $body.append($tr);
         }
-    }
 
     return { init: init };
 

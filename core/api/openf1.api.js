@@ -30,6 +30,18 @@ var OpenF1API = {
         return OpenF1API.get("/meetings", params);
     },
 
+    laps: function (params) {
+        return OpenF1API.get("/laps", params);
+    },
+
+    positions: function (params) {
+    return OpenF1API.get("/position", params);
+    },
+
+    intervals: function (params) { 
+        return OpenF1API.get("/intervals", params);
+    },
+
     /* ===== Normalization ===== */
     normalizeDrivers: function (list) {
         list = Array.isArray(list) ? list : [];

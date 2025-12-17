@@ -638,6 +638,7 @@ body::after{
 
 select option{background: #0b0f18;color: #e8ecf7}
 
+
 @media(max-width:700px){
   .select{min-width: 100%}
   .select-wrap{width:100%}

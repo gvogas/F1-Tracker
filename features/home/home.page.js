@@ -1,7 +1,3 @@
-// features/home/home.page.js
-// Requires jQuery loaded first
-// Requires HeaderModel + UserPrefsModel loaded
-
 var HomePageModel = {
 
   init: function () {
