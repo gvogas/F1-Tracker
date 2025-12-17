@@ -20,7 +20,7 @@ body{
 
 a{color:inherit}
 
-.wrap{
+main{
   max-width:1100px;
   margin:18px auto;
   padding:0 18px;
@@ -672,5 +672,119 @@ main .card{
 /* optional hover glow */
 .pill-display:hover{
   border-color: rgba(0,180,255,.55);
+}
+
+
+/* ===== Leaderboard ===== */
+.lb-top{display:flex;gap:12px;align-items:flex-end;justify-content:space-between;flex-wrap:wrap}
+.lb-controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+
+.table-wrap{
+  margin-top:12px;
+  border:1px solid rgba(255,255,255,.08);
+  border-radius:14px;
+  overflow:hidden;
+  background: rgba(0,0,0,.14);
+}
+
+.lb-table{
+  width:100%;
+  border-collapse:collapse;
+  font-size:14px;
+}
+
+.lb-table thead th{
+  text-align:left;
+  padding:12px 12px;
+  background: rgba(255,255,255,.03);
+  border-bottom:1px solid rgba(255,255,255,.08);
+  color: var(--muted);
+  font-weight:700;
+}
+
+.lb-table td{
+  padding:12px 12px;
+  border-bottom:1px solid rgba(255,255,255,.06);
+}
+
+.lb-table tr:hover td{
+  background: rgba(0,180,255,.06);
+}
+
+.lb-table .right{text-align:right}
+
+.lb-row-fav{
+  outline: 2px solid rgba(0,180,255,.40);
+  outline-offset: -2px;
+  background: rgba(0,180,255,.10);
+}
+
+.lb-select{min-width:260px}
+@media(max-width:700px){ .lb-select{min-width:100%} }
+
+
+/* ===== Nice Select (native) ===== */
+.lb-controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+
+.select{
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+
+  min-width: 320px;
+  height: 44px;
+  padding: 10px 44px 10px 14px;
+  border-radius: 14px;
+
+  color: var(--text);
+  background:
+    radial-gradient(500px 200px at 20% -40px, rgba(0,180,255,.18), transparent 60%),
+    rgba(0,0,0,.22);
+  border: 1px solid rgba(0,180,255,.28);
+
+  box-shadow: 0 0 18px rgba(0,180,255,.06), inset 0 0 0 1px rgba(255,255,255,.04);
+  outline: none;
+  cursor: pointer;
+}
+
+.select:hover{
+  border-color: rgba(0,180,255,.45);
+  background: rgba(0,180,255,.06);
+}
+
+.select:focus{
+  border-color: rgba(0,180,255,.65);
+  box-shadow: 0 0 0 3px rgba(0,180,255,.14);
+}
+
+/* Down arrow */
+.select-wrap{
+  position: relative;
+  display: inline-block;
+}
+.select-wrap::after{
+  content:"";
+  position:absolute;
+  right: 14px;
+  top: 50%;
+  width: 10px;
+  height: 10px;
+  transform: translateY(-55%) rotate(45deg);
+  border-right: 2px solid rgba(232,236,247,.8);
+  border-bottom: 2px solid rgba(232,236,247,.8);
+  pointer-events:none;
+  opacity:.85;
+}
+
+/* option background (works in some browsers) */
+select option{
+  background: #0b0f18;
+  color: #e8ecf7;
+}
+
+/* mobile */
+@media(max-width:700px){
+  .select{min-width: 100%}
+  .select-wrap{width:100%}
 }
 
