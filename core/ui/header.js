@@ -6,9 +6,7 @@ var HeaderModel = {
       ? UserPrefsModel.load()
       : {};
 
-    var favText = (prefs.favoriteDriver || prefs.favoriteTeam)
-      ? ("Fav: " + [prefs.favoriteDriver, prefs.favoriteTeam].filter(Boolean).join(" • "))
-      : "No favorites set";
+    var favText = HeaderModel.buildFavText(prefs);
 
     // root
     var header = $("<header>").addClass("site-header");
@@ -19,13 +17,26 @@ var HeaderModel = {
       .addClass("site-brand")
       .attr({ href: "home.html", "aria-label": "F1 Tracker Home" });
 
-    var logo = $("<div>").addClass("site-brand__logo");
+    var logo = $("<div>").addClass("site-brand__logo").attr("id", "headerLogo");
+
     var brandText = $("<div>").addClass("site-brand__text");
 
     var title = $("<div>").addClass("site-brand__title").text("F1 Tracker");
-    var sub = $("<div>").addClass("site-brand__sub muted").attr("id", "headerFavText").text(favText);
 
-    brandText.append(title, sub);
+    // favorites row: optional headshot + text
+    var favRow = $("<div>").addClass("site-brand__favrow");
+    var favAvatar = $("<img/>")
+      .attr({ id: "headerFavAvatar", alt: "Favorite driver" })
+      .addClass("fav-avatar")
+      .hide();
+
+    var sub = $("<div/>")
+      .addClass("site-brand__sub muted")
+      .attr("id", "headerFavText")
+      .text(favText);
+
+    favRow.append(favAvatar, sub);
+    brandText.append(title, favRow);
     brand.append(logo, brandText);
 
     // nav
@@ -39,15 +50,16 @@ var HeaderModel = {
     ];
 
     for (var i = 0; i < links.length; i++) {
-      var a = $("<a>")
-        .addClass("site-nav__link")
-        .attr({
-          href: links[i].href,
-          "data-page": links[i].key,
-          accesskey: links[i].accesskey
-        })
-        .text(links[i].label);
-      nav.append(a);
+      nav.append(
+        $("<a>")
+          .addClass("site-nav__link")
+          .attr({
+            href: links[i].href,
+            "data-page": links[i].key,
+            accesskey: links[i].accesskey
+          })
+          .text(links[i].label)
+      );
     }
 
     // actions
@@ -59,17 +71,11 @@ var HeaderModel = {
       .text("Edit Favorites");
 
     var soundBtn = $("<button>")
-    .addClass("site-actions__btn icon")
-    .attr({ type: "button", id: "soundToggle", "aria-pressed": "false" })
-    .html('<span class="pulse-dot" id="soundDot"></span><span id="soundLabel">Sound Off</span>');
+      .addClass("site-actions__btn icon")
+      .attr({ type: "button", id: "soundToggle", "aria-pressed": "false" })
+      .html('<span class="pulse-dot" id="soundDot"></span><span id="soundLabel">Sound Off</span>');
 
-    var editFavBtn = $("<a>")
-    .addClass("site-actions__btn")
-    .attr({ href: "profile.html", accesskey: "5" })
-    .text("Edit Favorites");
-
-    actions.append(editFavBtn,soundBtn, editFavBtn);
-
+    actions.append(editFavBtn, soundBtn);
 
     // build
     inner.append(brand, nav, actions);
@@ -79,12 +85,15 @@ var HeaderModel = {
     $("#header-container").html(header);
 
     // active state
-    HeaderModel._setActiveNav();
+    HeaderModel.setActiveNav();
+
+    // set avatar immediately (if available)
+    HeaderModel.refreshFavText();
 
     return header;
   },
 
-  _setActiveNav: function () {
+  setActiveNav: function () {
     var path = (window.location.pathname || "").toLowerCase();
     var page =
       path.includes("leaderboard") ? "leaderboard" :
@@ -94,6 +103,12 @@ var HeaderModel = {
 
     $(".site-nav__link").removeClass("is-active");
     $('.site-nav__link[data-page="' + page + '"]').addClass("is-active");
+  },
+
+  buildFavText: function (prefs) {
+    return (prefs.favoriteDriver || prefs.favoriteTeam)
+      ? ("Fav: " + [prefs.favoriteDriver, prefs.favoriteTeam].filter(Boolean).join(" • "))
+      : "No favorites set";
   },
 
   refreshFavText: function () {
@@ -106,5 +121,25 @@ var HeaderModel = {
       : "No favorites set";
 
     $("#headerFavText").text(favText);
+
+    // Use driver headshot as logo if available
+    var headshot = (prefs.favoriteDriverHeadshot || "").trim();
+    var $logo = $("#headerLogo");
+
+    if (headshot) {
+      $logo
+        .css({
+          "background-image": "url(" + headshot + ")",
+          "background-size": "cover",
+          "background-position": "center"
+        })
+        .addClass("has-driver-logo");
+    } else {
+      // fallback to default logo style
+      $logo
+        .css({ "background-image": "" })
+        .removeClass("has-driver-logo");
+    }
   }
+
 };

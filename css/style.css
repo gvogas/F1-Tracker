@@ -11,6 +11,7 @@
 
 body{
   margin:0;
+    padding-top: 72px; /* adjust to match header height */
   font-family:system-ui,Segoe UI,Roboto,Arial;
   background: var(--bg);
   color: var(--text);
@@ -30,19 +31,16 @@ main{
    F1 ANIMATED BACKGROUND
    ========================= */
 
-/* moving glow + vignette */
 body::before{
   content:"";
   position: fixed;
   inset: -40%;
   z-index: -2;
-
   background:
     radial-gradient(900px 420px at 15% 10%, rgba(0,180,255,.18), transparent 60%),
     radial-gradient(900px 420px at 85% 30%, rgba(0,180,255,.10), transparent 60%),
     radial-gradient(700px 340px at 55% 85%, rgba(0,180,255,.12), transparent 60%),
     radial-gradient(1200px 800px at 50% 50%, rgba(0,0,0,.55), rgba(0,0,0,.85));
-
   transform: translate3d(0,0,0);
   animation: bgDrift 18s ease-in-out infinite alternate;
   filter: saturate(1.2);
@@ -53,19 +51,15 @@ body::before{
   100% { transform: translate(2%, 1%) scale(1.06); }
 }
 
-/* checkered + curbs overlay */
 body::after{
   content:"";
   position: fixed;
   inset: 0;
   z-index: -1;
   pointer-events: none;
-
   background:
-    /* vignette / darken */
     radial-gradient(900px 500px at 80% 20%, rgba(0,180,255,.10), transparent 60%),
     linear-gradient(90deg, rgba(0,0,0,.18), rgba(0,0,0,.18)),
-    /* subtle checkered */
     conic-gradient(
       from 45deg,
       rgba(255,255,255,.08) 0 25%,
@@ -73,26 +67,13 @@ body::after{
       rgba(255,255,255,.08) 0 75%,
       rgba(0,0,0,0) 0 100%
     ),
-    /* curb stripes */
     repeating-linear-gradient(
       135deg,
       rgba(255,60,60,.10) 0 10px,
       rgba(255,255,255,.09) 10px 20px,
       rgba(0,0,0,0) 20px 70px
     );
-
-  background-size:
-    100% 100%,
-    100% 100%,
-    70px 70px,
-    100% 100%;
-
-  background-position:
-    0 0,
-    0 0,
-    0 0,
-    0 0;
-
+  background-size: 100% 100%, 100% 100%, 70px 70px, 100% 100%;
   opacity: .18;
   mix-blend-mode: screen;
   animation: flagDrift 10s linear infinite;
@@ -104,18 +85,19 @@ body::after{
 }
 
 /* =========================
-   HEADER (MATCHES YOUR JS)
+   HEADER
    ========================= */
 
 .site-header{
-  position: sticky;
+    position: fixed;
   top: 0;
-  z-index: 50;
+  left: 0;
+  width: 100%;
+  z-index: 100;
 
   background:
     radial-gradient(900px 260px at 20% -40px, rgba(0,180,255,.16), transparent 60%),
     rgba(0,0,0,.55);
-
   backdrop-filter: blur(12px);
   border-bottom: 1px solid rgba(255,255,255,.08);
   box-shadow: 0 10px 40px rgba(0,0,0,.35);
@@ -133,13 +115,11 @@ body::after{
   max-width: 1200px;
   margin: 0 auto;
   padding: 12px 18px;
-
   display:flex;
   align-items:center;
   gap: 14px;
 }
 
-/* brand */
 .site-brand{
   display:flex;
   align-items:center;
@@ -152,14 +132,12 @@ body::after{
   width: 42px;
   height: 42px;
   border-radius: 14px;
-
+  position: relative;
+  overflow: hidden;
   background:
     radial-gradient(circle at 30% 30%, rgba(0,180,255,.45), rgba(0,180,255,.10));
   border: 1px solid rgba(0,180,255,.35);
   box-shadow: 0 0 18px rgba(0,180,255,.12);
-
-  position: relative;
-  overflow: hidden;
 }
 
 .site-brand__logo::after{
@@ -179,6 +157,11 @@ body::after{
   100%{ transform: translateX(70%) rotate(15deg); opacity:0; }
 }
 
+.site-brand__logo.has-driver-logo{
+  border-color: rgba(255,255,255,.18);
+  box-shadow: 0 0 18px rgba(255,255,255,.35);
+}
+
 .site-brand__title{
   font-weight: 900;
   letter-spacing: .6px;
@@ -191,7 +174,6 @@ body::after{
   color: var(--muted);
 }
 
-/* nav */
 .site-nav{
   flex: 1;
   display:flex;
@@ -204,7 +186,6 @@ body::after{
   text-decoration:none;
   padding: 9px 12px;
   border-radius: 12px;
-
   border: 1px solid rgba(255,255,255,.10);
   background: rgba(255,255,255,.02);
 }
@@ -220,7 +201,6 @@ body::after{
   box-shadow: 0 0 14px rgba(0,180,255,.10);
 }
 
-/* actions */
 .site-actions{
   min-width: 170px;
   display:flex;
@@ -232,7 +212,6 @@ body::after{
   text-decoration:none;
   padding: 9px 12px;
   border-radius: 12px;
-
   border: 1px solid rgba(255,255,255,.12);
   background: rgba(255,255,255,.02);
 }
@@ -242,7 +221,6 @@ body::after{
   background: rgba(0,180,255,.06);
 }
 
-/* sound toggle */
 .site-actions__btn.icon{
   display:inline-flex;
   align-items:center;
@@ -267,7 +245,6 @@ body::after{
   50%{ transform: scale(1.6); opacity:.45; }
 }
 
-/* mobile */
 @media (max-width: 700px){
   .site-header__inner{flex-wrap:wrap}
   .site-brand{min-width:0; flex:1}
@@ -399,18 +376,27 @@ body::after{
   .hero h1{font-size:28px}
 }
 
+/* =========================
+   FORMS (shared)
+   ========================= */
 
 .lbl{display:block;margin:10px 0 6px;color:var(--muted);font-size:13px}
+
 .inp{
   width:100%;
   padding:10px 12px;
   border-radius:12px;
   border:1px solid rgba(255,255,255,.10);
-  background: rgba(0,0,0,.25);
+  background: rgba(0,0,0,.22);
   color: var(--text);
   outline:none;
 }
-.inp:focus{border-color: rgba(0,180,255,.45)}
+.inp:focus{
+  border-color: rgba(0,180,255,.55);
+  box-shadow: 0 0 0 3px rgba(0,180,255,.12);
+}
+
+.inp-sm{padding:8px 10px;border-radius:10px;font-size:13px}
 
 .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 
@@ -423,19 +409,22 @@ body::after{
   .form-grid{grid-template-columns:1fr}
 }
 
+/* =========================
+   PROFILE (SINGLE GRID)
+   ========================= */
+
 .picker-wrap{
   display:grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
   gap:14px;
   margin-top:14px;
 }
-@media(max-width:900px){ .picker-wrap{grid-template-columns:1fr} }
 
 .picker{
   border:1px solid rgba(255,255,255,.08);
-  border-radius:16px;
-  padding:12px;
-  background: rgba(255,255,255,.02);
+  border-radius:18px;
+  padding:14px;
+  background: rgba(255,255,255,.03);
 }
 
 .picker-head{
@@ -443,134 +432,47 @@ body::after{
   align-items:center;
   justify-content:space-between;
   gap:10px;
-  margin-bottom:10px;
+  margin-bottom:12px;
 }
 
 .picker-title{
   margin:0;
-  font-size:16px;
-  letter-spacing:.2px;
+  font-size:15px;
+  letter-spacing:.3px;
+  opacity:.95;
 }
-
-.inp-sm{padding:8px 10px;border-radius:10px;font-size:13px}
 
 .chip-grid{
   display:grid;
   grid-template-columns:repeat(2, minmax(0, 1fr));
   gap:10px;
-  max-height: 340px;
+  max-height:360px;
   overflow:auto;
-  padding-right:4px;
+  padding:10px;
+  padding-right:8px;
+  border:1px solid rgba(255,255,255,.06);
+  border-radius:14px;
+  background: rgba(0,0,0,.14);
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0,180,255,.28) rgba(255,255,255,.05);
 }
+
+.chip-grid::-webkit-scrollbar{width:10px}
+.chip-grid::-webkit-scrollbar-track{background: rgba(255,255,255,.04);border-radius:999px}
+.chip-grid::-webkit-scrollbar-thumb{background: rgba(0,180,255,.22);border:2px solid rgba(0,0,0,.35);border-radius:999px}
+.chip-grid::-webkit-scrollbar-thumb:hover{background: rgba(0,180,255,.34)}
 
 .chip{
   display:flex;
   align-items:center;
   justify-content:space-between;
   gap:10px;
-
   padding:10px 12px;
   border-radius:14px;
-
   border:1px solid rgba(255,255,255,.10);
-  background: rgba(0,0,0,.20);
+  background: linear-gradient(180deg, rgba(255,255,255,.03), rgba(0,0,0,.10));
   cursor:pointer;
   user-select:none;
-}
-
-.chip:hover{
-  border-color: rgba(0,180,255,.35);
-  background: rgba(0,180,255,.06);
-}
-
-.chip.is-selected{
-  border-color: rgba(0,180,255,.65);
-  background: rgba(0,180,255,.14);
-  box-shadow: 0 0 14px rgba(0,180,255,.10);
-}
-
-.chip-meta{
-  font-size:12px;
-  color: var(--muted);
-}
-
-/* =========================
-   PROFILE PAGE POLISH
-   Paste at bottom of style.css
-   ========================= */
-
-/* Panels look less “puffy” */
-.picker{
-  padding: 14px;
-  border-radius: 18px;
-  background: rgba(255,255,255,.03);
-  border: 1px solid rgba(255,255,255,.08);
-}
-
-/* Better header row spacing */
-.picker-head{
-  margin-bottom: 12px;
-}
-.picker-title{
-  font-size: 15px;
-  letter-spacing: .3px;
-  opacity: .95;
-}
-
-/* Search inputs look more “pro” */
-.inp{
-  background: rgba(0,0,0,.22);
-  border: 1px solid rgba(255,255,255,.10);
-}
-.inp:focus{
-  border-color: rgba(0,180,255,.55);
-  box-shadow: 0 0 0 3px rgba(0,180,255,.12);
-}
-
-/* ===== Scroll area polish ===== */
-.chip-grid{
-  max-height: 360px;
-  overflow: auto;
-  padding-right: 8px;
-
-  border: 1px solid rgba(255,255,255,.06);
-  border-radius: 14px;
-  background: rgba(0,0,0,.14);
-  padding: 10px;
-}
-
-/* Chrome/Edge scrollbar */
-.chip-grid::-webkit-scrollbar{
-  width: 10px;
-}
-.chip-grid::-webkit-scrollbar-track{
-  background: rgba(255,255,255,.04);
-  border-radius: 999px;
-}
-.chip-grid::-webkit-scrollbar-thumb{
-  background: rgba(0,180,255,.22);
-  border: 2px solid rgba(0,0,0,.35);
-  border-radius: 999px;
-}
-.chip-grid::-webkit-scrollbar-thumb:hover{
-  background: rgba(0,180,255,.34);
-}
-
-/* Firefox scrollbar */
-.chip-grid{
-  scrollbar-width: thin;
-  scrollbar-color: rgba(0,180,255,.28) rgba(255,255,255,.05);
-}
-
-/* ===== Chip redesign ===== */
-.chip{
-  border-radius: 14px;
-  padding: 10px 12px;
-
-  background:
-    linear-gradient(180deg, rgba(255,255,255,.03), rgba(0,0,0,.10));
-  border: 1px solid rgba(255,255,255,.10);
-
   transition: transform .10s ease, border-color .12s ease, background .12s ease;
 }
 
@@ -580,102 +482,80 @@ body::after{
   background: rgba(0,180,255,.06);
 }
 
-.chip-meta{
-  font-size: 11px;
-  letter-spacing: .2px;
-  opacity: .9;
-}
-
 .chip.is-selected{
   border-color: rgba(0,180,255,.70);
   background: rgba(0,180,255,.14);
   box-shadow: 0 0 0 3px rgba(0,180,255,.10);
 }
 
-/* ===== Make the 2 lists 3 columns on wide screens ===== */
-@media (min-width: 1100px){
-  #driverGrid{ grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  #teamGrid{ grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
+.chip-left{display:flex;align-items:center;gap:10px}
+.chip-avatar{width:32px;height:32px;border-radius:50%;object-fit:cover}
+.chip-namewrap{display:flex;flex-direction:column;line-height:1.1}
+.chip-name{font-weight:600}
+.chip-sub{font-size:.85em}
 
-/* ===== Sticky action bar for Save/Clear ===== */
-.row{
-  position: sticky;
-  bottom: 12px;
-  margin-top: 14px;
-
-  padding: 10px;
-  border-radius: 16px;
-
-  background: rgba(0,0,0,.45);
-  border: 1px solid rgba(255,255,255,.10);
-  backdrop-filter: blur(10px);
-
+.chip-meta{
   display:flex;
   align-items:center;
-  gap: 10px;
-}
-
-/* Buttons: better shape + spacing */
-.row .btn{
-  padding: 10px 14px;
-  border-radius: 14px;
-}
-
-.row .btn.ghost{
-  background: rgba(255,255,255,.03);
-}
-
-#msg{
-  margin-left: auto;
-  font-size: 13px;
+  gap:8px;
+  margin-left:auto;
+  font-size:12px;
   color: var(--muted);
 }
 
-/* Optional: reduce huge inner card padding on profile */
-main .card{
-  padding: 18px;
-}
-
-/* =========================
-   PILL DISPLAY (PROFILE)
-   ========================= */
+.chip-dot{display:inline-block;width:10px;height:10px;border-radius:50%}
 
 .pill-display{
   min-height: 42px;
   padding: 10px 14px;
-
-  display: flex;
-  align-items: center;
-
-  border-radius: 999px;
-  border: 1px solid rgba(255,255,255,.12);
-  background:
-    linear-gradient(180deg, rgba(255,255,255,.04), rgba(0,0,0,.18));
-
+  display:flex;
+  align-items:center;
+  border-radius:999px;
+  border:1px solid rgba(255,255,255,.12);
+  background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(0,0,0,.18));
   color: var(--muted);
-  font-size: 14px;
-
+  font-size:14px;
   cursor: default;
-  user-select: none;
+  user-select:none;
 }
 
-/* filled state */
 .pill-display.has-value{
   color: var(--text);
   border-color: rgba(0,180,255,.45);
-  background:
-    linear-gradient(180deg, rgba(0,180,255,.18), rgba(0,0,0,.22));
+  background: linear-gradient(180deg, rgba(0,180,255,.18), rgba(0,0,0,.22));
   box-shadow: 0 0 0 3px rgba(0,180,255,.12);
 }
 
-/* optional hover glow */
-.pill-display:hover{
-  border-color: rgba(0,180,255,.55);
+.pill-display:hover{border-color: rgba(0,180,255,.55)}
+
+/* Profile buttons */
+#saveBtn, #clearBtn{
+  padding: 12px 18px;
+  border-radius: 14px;
+  font-weight: 700;
 }
 
+#saveBtn.btn{
+  background: rgba(0,180,255,.18);
+  border: 1px solid rgba(0,180,255,.55);
+  box-shadow: 0 0 0 3px rgba(0,180,255,.10);
+}
+#saveBtn.btn:hover{background: rgba(0,180,255,.28);border-color: rgba(0,180,255,.75)}
 
-/* ===== Leaderboard ===== */
+#clearBtn.btn.ghost{
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.18);
+}
+#clearBtn.btn.ghost:hover{background: rgba(255,255,255,.10);border-color: rgba(255,255,255,.26)}
+
+@media (min-width: 1100px){
+  #driverGrid{ grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+/* =========================
+   LEADERBOARD
+   ========================= */
+
 .lb-top{display:flex;gap:12px;align-items:flex-end;justify-content:space-between;flex-wrap:wrap}
 .lb-controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 
@@ -687,11 +567,7 @@ main .card{
   background: rgba(0,0,0,.14);
 }
 
-.lb-table{
-  width:100%;
-  border-collapse:collapse;
-  font-size:14px;
-}
+.lb-table{width:100%;border-collapse:collapse;font-size:14px}
 
 .lb-table thead th{
   text-align:left;
@@ -707,10 +583,7 @@ main .card{
   border-bottom:1px solid rgba(255,255,255,.06);
 }
 
-.lb-table tr:hover td{
-  background: rgba(0,180,255,.06);
-}
-
+.lb-table tr:hover td{background: rgba(0,180,255,.06)}
 .lb-table .right{text-align:right}
 
 .lb-row-fav{
@@ -722,46 +595,33 @@ main .card{
 .lb-select{min-width:260px}
 @media(max-width:700px){ .lb-select{min-width:100%} }
 
-
-/* ===== Nice Select (native) ===== */
-.lb-controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.lb-driver-cell{display:flex;align-items:center;gap:10px}
+.lb-headshot{width:30px;height:30px;border-radius:50%;object-fit:cover}
+.lb-driver-text{display:flex;flex-direction:column;line-height:1.1}
+.lb-team-dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:8px;vertical-align:middle}
 
 .select{
   appearance: none;
   -webkit-appearance: none;
   -moz-appearance: none;
-
   min-width: 320px;
   height: 44px;
   padding: 10px 44px 10px 14px;
   border-radius: 14px;
-
   color: var(--text);
   background:
     radial-gradient(500px 200px at 20% -40px, rgba(0,180,255,.18), transparent 60%),
     rgba(0,0,0,.22);
   border: 1px solid rgba(0,180,255,.28);
-
   box-shadow: 0 0 18px rgba(0,180,255,.06), inset 0 0 0 1px rgba(255,255,255,.04);
   outline: none;
   cursor: pointer;
 }
 
-.select:hover{
-  border-color: rgba(0,180,255,.45);
-  background: rgba(0,180,255,.06);
-}
+.select:hover{border-color: rgba(0,180,255,.45);background: rgba(0,180,255,.06)}
+.select:focus{border-color: rgba(0,180,255,.65);box-shadow: 0 0 0 3px rgba(0,180,255,.14)}
 
-.select:focus{
-  border-color: rgba(0,180,255,.65);
-  box-shadow: 0 0 0 3px rgba(0,180,255,.14);
-}
-
-/* Down arrow */
-.select-wrap{
-  position: relative;
-  display: inline-block;
-}
+.select-wrap{position: relative;display: inline-block}
 .select-wrap::after{
   content:"";
   position:absolute;
@@ -776,15 +636,9 @@ main .card{
   opacity:.85;
 }
 
-/* option background (works in some browsers) */
-select option{
-  background: #0b0f18;
-  color: #e8ecf7;
-}
+select option{background: #0b0f18;color: #e8ecf7}
 
-/* mobile */
 @media(max-width:700px){
   .select{min-width: 100%}
   .select-wrap{width:100%}
 }
-
