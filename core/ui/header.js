@@ -45,7 +45,7 @@ var HeaderModel = {
     var links = [
       { href: "home.html", label: "Home", key: "home", accesskey: "1" },
       { href: "leaderboard.html", label: "Leaderboard", key: "leaderboard", accesskey: "2" },
-      { href: "live.html", label: "Live + Stats", key: "live", accesskey: "3" },
+      { href: "dashboard.html", label: "Dashboard", key: "dash", accesskey: "3" },
       { href: "profile.html", label: "Profile", key: "profile", accesskey: "4" }
     ];
 
@@ -97,7 +97,7 @@ var HeaderModel = {
     var path = (window.location.pathname || "").toLowerCase();
     var page =
       path.includes("leaderboard") ? "leaderboard" :
-      path.includes("live") ? "live" :
+      path.includes("dashboard") ? "dashboard" :
       path.includes("profile") ? "profile" :
       "home";
 

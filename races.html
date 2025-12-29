@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Races | F1 Tracker</title>
+
+  <!-- Main styles -->
+  <link rel="stylesheet" href="css/style.css" />
+
+  <!-- Font Awesome (optional, if you use icons on cards later) -->
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
+    crossorigin="anonymous"
+    referrerpolicy="no-referrer"
+  />
+</head>
+
+<body>
+
+  <!-- Optional shared header -->
+  <div id="header-container"></div>
+  
+
+  <main class="page">
+
+    <!-- =========================
+         PAGE HEADER
+    ========================== -->
+    <div class="page-head">
+      <h1>Races</h1>
+
+      <div class="select-wrap">
+        <select class="select" id="yearSelect"></select>
+      </div>
+    </div>
+
+    <!-- =========================
+         RACE GRID
+    ========================== -->
+    <section class="race-grid" id="raceGrid">
+      <!-- Race cards injected here -->
+    </section>
+
+  </main>
+
+  <!-- =========================
+       SCRIPTS
+  ========================== -->
+
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+
+    <script src="core/lib/cookies.js"></script>
+    <script src="core/lib/userPrefs.js"></script>
+    <script src="core/ui/header.js"></script>
+
+
+  <!-- OpenF1 API --> 
+  <script src="core/api/openf1.api.js"></script>
+
+  <script src="core/f1/f1.data.js"></script>
+  <script src="core/api/openf1.api.js"></script>
+
+  <!-- Races page logic -->
+  <script src="features/races/racesPage.js"></script>
+
+</body>
+</html>
