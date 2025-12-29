@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Live + Stats</title>
+
+  <link rel="stylesheet" href="css/style.css" />
+
+  <!-- Font Awesome (remove integrity placeholder) -->
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
+    crossorigin="anonymous"
+    referrerpolicy="no-referrer"
+  />
+</head>
+
+<body>
+  <div id="header-container"></div>
+
+  <div class="lb-controls">
+    <div class="select-wrap">
+      <select class="select" id="meetingSelect"></select>
+    </div>
+
+    <div class="select-wrap">
+      <select class="select" id="sessionSelect"></select>
+    </div>
+
+    <button class="btn ghost" id="refreshBtn" type="button">Refresh</button>
+  </div>
+
+  <div class="wxbar" id="weatherBar">
+    <div class="wxchip" id="wxTrc">
+      <div class="wxvalue">--</div>
+      <div class="wxlabel">TRC</div>
+    </div>
+
+    <div class="wxchip" id="wxAir">
+      <div class="wxvalue">--</div>
+      <div class="wxlabel">AIR</div>
+    </div>
+
+    <div class="wxchip" id="wxHum">
+      <div class="wxvalue">--</div>
+      <div class="wxlabel">HUM</div>
+    </div>
+
+    <div class="wxchip wxicon" id="wxRain">
+      <i class="fa-solid fa-cloud"></i>
+      <div class="wxlabel">RAIN</div>
+    </div>
+
+    <div class="wxchip wxicon" id="wxWind">
+      <div class="wxvalue">--</div>
+      <div class="wxlabel">-- m/s</div>
+    </div>
+  </div>
+
+  <main>
+    <!-- ✅ ADD THIS: timing tower container -->
+    <section class="tower" id="tower"></section>
+
+    <h4>Development</h4>
+  </main>
+
+  <!-- scripts -->
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+
+  <script src="core/lib/cookies.js"></script>
+  <script src="core/lib/userPrefs.js"></script>
+  <script src="core/ui/header.js"></script>
+
+  <script src="core/api/openf1.api.js"></script>
+
+  <script src="core/f1/f1.data.js"></script>
+
+  <script src="core/f1/weatherData.js"></script>
+
+  <!-- ✅ ADD THESE TWO (create these files) -->
+  <script src="core/f1/towerData.js"></script>
+  <script src="core/f1/towerUI.js"></script>
+
+  <script src="core/f1/f1.ui.js"></script>
+
+  <script src="features/dashboard/dashboardPage.js"></script>
+</body>
+</html>

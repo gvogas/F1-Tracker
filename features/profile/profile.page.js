@@ -1,192 +1,149 @@
-// features/profile/profile.page.js
-// Requires jQuery + HeaderModel + UserPrefsModel
+var ProfilePageModel = {
 
-var ProfilePageModel = (function () {
+  DRIVER_PLACEHOLDER: "Click a driver below",
+  TEAM_PLACEHOLDER: "Click a driver below",
 
-  var DRIVERS = [
-    { name: "Max Verstappen", team: "Red Bull" },
-    { name: "Sergio Perez", team: "Red Bull" },
-    { name: "Lewis Hamilton", team: "Mercedes" },
-    { name: "George Russell", team: "Mercedes" },
-    { name: "Charles Leclerc", team: "Ferrari" },
-    { name: "Carlos Sainz", team: "Ferrari" },
-    { name: "Lando Norris", team: "McLaren" },
-    { name: "Oscar Piastri", team: "McLaren" },
-    { name: "Fernando Alonso", team: "Aston Martin" },
-    { name: "Lance Stroll", team: "Aston Martin" },
-    { name: "Pierre Gasly", team: "Alpine" },
-    { name: "Esteban Ocon", team: "Alpine" },
-    { name: "Alexander Albon", team: "Williams" },
-    { name: "Logan Sargeant", team: "Williams" },
-    { name: "Yuki Tsunoda", team: "RB" },
-    { name: "Daniel Ricciardo", team: "RB" },
-    { name: "Valtteri Bottas", team: "Sauber" },
-    { name: "Zhou Guanyu", team: "Sauber" },
-    { name: "Kevin Magnussen", team: "Haas" },
-    { name: "Nico Hulkenberg", team: "Haas" }
-  ];
+  state: {
+    year: new Date().getFullYear(),
+    drivers: [],
+    selectedDriver: null
+  },
 
-  var TEAMS = [
-    "Red Bull","Ferrari","McLaren","Mercedes","Aston Martin",
-    "Alpine","Williams","RB","Sauber","Haas"
-  ];
-
-  var DRIVER_PLACEHOLDER = "Click a driver below";
-  var TEAM_PLACEHOLDER   = "Click a team below";
-
-  function init() {
+  init: function () {
     HeaderModel.createHeader();
 
-    // load prefs
-    var prefs = UserPrefsModel.load();
+    // load prefs into form
+    var prefs = (typeof UserPrefsModel !== "undefined" && UserPrefsModel.load)
+      ? UserPrefsModel.load()
+      : {};
+
     $("#name").val(prefs.name || "");
 
-    setPill("#favoriteDriver", prefs.favoriteDriver, DRIVER_PLACEHOLDER);
-    setPill("#favoriteTeam", prefs.favoriteTeam, TEAM_PLACEHOLDER);
+    F1UI.setPill("#favoriteDriver", prefs.favoriteDriver || "", ProfilePageModel.DRIVER_PLACEHOLDER);
+    F1UI.setPill("#favoriteTeam", prefs.favoriteTeam || "", ProfilePageModel.TEAM_PLACEHOLDER);
 
-    renderDrivers();
-    renderTeams();
+    // bind events
+    ProfilePageModel.bindEvents();
 
-    // search filters
+    // load drivers
+    ProfilePageModel.loadDrivers();
+  },
+
+  bindEvents: function () {
+    // search
     $("#driverSearch").on("input", function () {
-      renderDrivers($(this).val());
+      ProfilePageModel.repaintGrid();
     });
 
-    $("#teamSearch").on("input", function () {
-      renderTeams($(this).val());
-    });
-
-    // delegated click for chips
+    // click driver chip/card sets BOTH driver + team
     $(document).on("click", ".chip[data-type='driver']", function () {
-      var name = String($(this).data("value") || "").trim();
-      setPill("#favoriteDriver", name, DRIVER_PLACEHOLDER);
+      var num = String($(this).data("num") || "").trim();
+      var d = ProfilePageModel.findDriverByNum(num);
+      if (!d) return;
 
-      $(".chip[data-type='driver']").removeClass("is-selected");
-      $(this).addClass("is-selected");
+      ProfilePageModel.state.selectedDriver = d;
+
+      F1UI.setPill("#favoriteDriver", d.fullName || "", ProfilePageModel.DRIVER_PLACEHOLDER);
+      F1UI.setPill("#favoriteTeam", d.teamName || "", ProfilePageModel.TEAM_PLACEHOLDER);
+
+      ProfilePageModel.repaintGrid();
+      $("#msg").text("").hide();
     });
 
-    $(document).on("click", ".chip[data-type='team']", function () {
-      var name = String($(this).data("value") || "").trim();
-      setPill("#favoriteTeam", name, TEAM_PLACEHOLDER);
-
-      $(".chip[data-type='team']").removeClass("is-selected");
-      $(this).addClass("is-selected");
-    });
-
-    // save
     $("#saveBtn").on("click", function () {
-      var next = {
-        name: $("#name").val().trim(),
-        favoriteDriver: getPillValue("#favoriteDriver"),
-        favoriteTeam: getPillValue("#favoriteTeam")
-      };
-
-      UserPrefsModel.save(next);
-      HeaderModel.refreshFavText();
-
-      highlightSelected(next.favoriteDriver, next.favoriteTeam);
-
-      $("#msg").text("Saved.").fadeIn(0).delay(900).fadeOut(250);
+      ProfilePageModel.save();
     });
 
-    // clear
     $("#clearBtn").on("click", function () {
-      UserPrefsModel.clear();
-      $("#name").val("");
+      ProfilePageModel.clear();
+    });
+  },
 
-      setPill("#favoriteDriver", "", DRIVER_PLACEHOLDER);
-      setPill("#favoriteTeam", "", TEAM_PLACEHOLDER);
+  loadDrivers: function () {
+    $("#msg").text("Loading drivers from OpenF1...").show();
 
-      $(".chip").removeClass("is-selected");
+    F1Data.getLatestDrivers(ProfilePageModel.state.year)
+      .then(function (drivers) {
+        ProfilePageModel.state.drivers = drivers || [];
+        $("#msg").text("").hide();
+        ProfilePageModel.repaintGrid();
+      })
+      .catch(function () {
+        ProfilePageModel.state.drivers = [];
+        $("#msg").text("Failed to load drivers from OpenF1.").show();
+        ProfilePageModel.repaintGrid();
+      });
+  },
+
+  save: function () {
+    var driverName = F1UI.getPillValue("#favoriteDriver");
+    var teamName = F1UI.getPillValue("#favoriteTeam");
+
+    var next = {
+      name: $("#name").val().trim(),
+      favoriteDriver: driverName,
+      favoriteTeam: teamName
+    };
+
+    // extra fields for auto-fill elsewhere
+    var d = ProfilePageModel.state.selectedDriver;
+    if (d) {
+      next.favoriteDriverNumber = d.number || "";
+      next.favoriteDriverAcronym = d.acronym || "";
+      next.favoriteDriverHeadshot = d.headshotUrl || "";
+      next.favoriteTeamColour = d.teamColour || "";
+    }
+
+    if (typeof UserPrefsModel !== "undefined" && UserPrefsModel.save) {
+      UserPrefsModel.save(next);
+    }
+
+    if (typeof HeaderModel !== "undefined" && HeaderModel.refreshFavText) {
       HeaderModel.refreshFavText();
-
-      $("#msg").text("Cleared.").fadeIn(0).delay(900).fadeOut(250);
-    });
-
-    // initial highlight
-    highlightSelected(getPillValue("#favoriteDriver"), getPillValue("#favoriteTeam"));
-  }
-
-  function setPill(sel, value, placeholder) {
-    value = (value || "").trim();
-    if (value) {
-      $(sel).text(value).addClass("has-value");
-    } else {
-      $(sel).text(placeholder).removeClass("has-value");
-    }
-  }
-
-  function getPillValue(sel) {
-    return $(sel).hasClass("has-value") ? $(sel).text().trim() : "";
-  }
-
-  function renderDrivers(search) {
-    search = (search || "").toLowerCase().trim();
-    var $grid = $("#driverGrid").empty();
-
-    var list = DRIVERS.filter(function (d) {
-      if (!search) return true;
-      return d.name.toLowerCase().includes(search) || d.team.toLowerCase().includes(search);
-    });
-
-    for (var i = 0; i < list.length; i++) {
-      var d = list[i];
-      var $chip = $("<div>")
-        .addClass("chip")
-        .attr("data-type", "driver")
-        .attr("data-value", d.name);
-
-      var $left = $("<div>").text(d.name);
-      var $right = $("<div>").addClass("chip-meta").text(d.team);
-
-      $chip.append($left, $right);
-      $grid.append($chip);
     }
 
-    highlightSelected(getPillValue("#favoriteDriver"), getPillValue("#favoriteTeam"));
-  }
+    ProfilePageModel.repaintGrid();
+    $("#msg").text("Saved.").fadeIn(0).delay(900).fadeOut(250);
+  },
 
-  function renderTeams(search) {
-    search = (search || "").toLowerCase().trim();
-    var $grid = $("#teamGrid").empty();
-
-    var list = TEAMS.filter(function (t) {
-      if (!search) return true;
-      return t.toLowerCase().includes(search);
-    });
-
-    for (var i = 0; i < list.length; i++) {
-      var t = list[i];
-      var $chip = $("<div>")
-        .addClass("chip")
-        .attr("data-type", "team")
-        .attr("data-value", t);
-
-      $chip.append($("<div>").text(t));
-      $grid.append($chip);
+  clear: function () {
+    if (typeof UserPrefsModel !== "undefined" && UserPrefsModel.clear) {
+      UserPrefsModel.clear();
     }
 
-    highlightSelected(getPillValue("#favoriteDriver"), getPillValue("#favoriteTeam"));
+    $("#name").val("");
+
+    ProfilePageModel.state.selectedDriver = null;
+
+    F1UI.setPill("#favoriteDriver", "", ProfilePageModel.DRIVER_PLACEHOLDER);
+    F1UI.setPill("#favoriteTeam", "", ProfilePageModel.TEAM_PLACEHOLDER);
+
+    if (typeof HeaderModel !== "undefined" && HeaderModel.refreshFavText) {
+      HeaderModel.refreshFavText();
+    }
+
+    ProfilePageModel.repaintGrid();
+    $("#msg").text("Cleared.").fadeIn(0).delay(900).fadeOut(250);
+  },
+
+  repaintGrid: function () {
+    F1UI.renderDriverGrid($("#driverGrid"), ProfilePageModel.state.drivers, {
+      search: $("#driverSearch").val(),
+      selectedName: F1UI.getPillValue("#favoriteDriver")
+    });
+  },
+
+  findDriverByNum: function (numStr) {
+    numStr = String(numStr || "");
+    for (var i = 0; i < ProfilePageModel.state.drivers.length; i++) {
+      if (String(ProfilePageModel.state.drivers[i].number) === numStr) {
+        return ProfilePageModel.state.drivers[i];
+      }
+    }
+    return null;
   }
 
-  function highlightSelected(driver, team) {
-    driver = (driver || "").trim();
-    team = (team || "").trim();
-
-    $(".chip[data-type='driver']").each(function () {
-      var v = String($(this).data("value") || "");
-      $(this).toggleClass("is-selected", v === driver);
-    });
-
-    $(".chip[data-type='team']").each(function () {
-      var v = String($(this).data("value") || "");
-      $(this).toggleClass("is-selected", v === team);
-    });
-  }
-
-  return { init: init };
-
-})();
+};
 
 $(document).ready(function () {
   ProfilePageModel.init();

@@ -1,26 +1,86 @@
-// core/api/openf1.api.js
-// Requires jQuery
+var OpenF1API = {
 
-var OpenF1API = (function () {
-  var BASE = "https://api.openf1.org/v1";
+    BASE: "https://api.openf1.org/v1",
 
-  function get(endpoint, params) {
-    return $.ajax({
-      url: BASE + endpoint,
-      method: "GET",
-      dataType: "json",
-      data: params || {},
-      timeout: 15000
-    });
-  }
+    /* ===== Core GET ===== */
+    get: function (endpoint, params) {
+        return $.ajax({
+        url: OpenF1API.BASE + endpoint,
+        method: "GET",
+        dataType: "json",
+        data: params || {},
+        timeout: 15000
+        });
+    },
 
-  
+    /* ===== Endpoints ===== */
+      /* ===== Core ===== */
+    meetings: function (params) {
+        return OpenF1API.get("/meetings", params);
+    },
 
-    function sessions(params) { return get("/sessions", params); }
-    function drivers(params) { return get("/drivers", params); }
-    function sessionResult(params) { return get("/session_result", params); }
-    function meetings(params) { return get("/meetings", params); }
+    sessions: function (params) {
+        return OpenF1API.get("/sessions", params);
+    },
 
-    return { sessions: sessions, drivers: drivers, sessionResult: sessionResult, meetings: meetings };
+    drivers: function (params) {
+        return OpenF1API.get("/drivers", params);
+    },
 
-})();
+    /* ===== Car / Timing ===== */
+    carData: function (params) {
+        return OpenF1API.get("/car_data", params);
+    },
+
+    laps: function (params) {
+        return OpenF1API.get("/laps", params);
+    },
+
+    intervals: function (params) {
+        return OpenF1API.get("/intervals", params);
+    },
+
+    position: function (params) {
+        return OpenF1API.get("/position", params);
+    },
+
+    stints: function (params) {
+        return OpenF1API.get("/stints", params);
+    },
+
+    pit: function (params) {
+        return OpenF1API.get("/pit", params);
+    },
+
+    /* ===== Location / Movement ===== */
+    location: function (params) {
+        return OpenF1API.get("/location", params);
+    },
+
+    overtakes: function (params) {
+        return OpenF1API.get("/overtakes", params);
+    },
+
+    /* ===== Results / Grid (BETA) ===== */
+    sessionResult: function (params) {
+        return OpenF1API.get("/session_result", params);
+    },
+
+    startingGrid: function (params) {
+        return OpenF1API.get("/starting_grid", params);
+    },
+
+    /* ===== Control / Radio ===== */
+    raceControl: function (params) {
+        return OpenF1API.get("/race_control", params);
+    },
+
+    teamRadio: function (params) {
+        return OpenF1API.get("/team_radio", params);
+    },
+
+    /* ===== Environment ===== */
+    weather: function (params) {
+        return OpenF1API.get("/weather", params);
+    }
+};

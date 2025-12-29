@@ -10,18 +10,18 @@ var LeaderboardPageModel = (function () {
         HeaderModel.createHeader();
 
         $("#refreshBtn").on("click", function () {
-        loadMeetings(true);
+            loadMeetings(true);
         });
 
         $("#meetingSelect").on("change", function () {
-        state.meeting_key = $("#meetingSelect").val() || null;
-        state.session_key = null;
-        loadSessionsForMeeting(state.meeting_key, true);
+            state.meeting_key = $("#meetingSelect").val() || null;
+            state.session_key = null;
+            loadSessionsForMeeting(state.meeting_key, true);
         });
 
         $("#sessionSelect").on("change", function () {
-        state.session_key = $("#sessionSelect").val() || null;
-        if (state.session_key) loadResultsForSession(state.session_key);
+            state.session_key = $("#sessionSelect").val() || null;
+            if (state.session_key) loadResultsForSession(state.session_key);
         });
 
         loadMeetings(false);
@@ -33,32 +33,29 @@ var LeaderboardPageModel = (function () {
         $("#driversBody").empty();
         $("#lbTitle").text("Leaderboard");
 
-        // You can later add a year dropdown; for now use current year
         OpenF1API.meetings({ year: state.year })
         .done(function (meetings) {
             if (!Array.isArray(meetings) || meetings.length === 0) {
-            $("#lbMsg").text("No meetings found for " + state.year + ".");
-            $("#meetingSelect").empty();
-            $("#sessionSelect").empty();
-            return;
+                $("#lbMsg").text("No meetings found for " + state.year + ".");
+                $("#meetingSelect").empty();
+                $("#sessionSelect").empty();
+                return;
             }
 
-            // sort by date_start
             meetings.sort(function (a, b) {
-            return new Date(a.date_start).getTime() - new Date(b.date_start).getTime();
+                return new Date(a.date_start).getTime() - new Date(b.date_start).getTime();
             });
 
-            // build meeting dropdown
             var prev = (!force && state.meeting_key) ? state.meeting_key : $("#meetingSelect").val();
             $("#meetingSelect").empty();
 
             for (var i = 0; i < meetings.length; i++) {
-            var m = meetings[i];
-            var label = formatMeetingLabel(m);
-            $("#meetingSelect").append($("<option>").val(String(m.meeting_key)).text(label));
+                var m = meetings[i];
+                $("#meetingSelect").append(
+                    $("<option>").val(String(m.meeting_key)).text(formatMeetingLabel(m))
+                );
             }
 
-            // default: keep prev if exists, else latest meeting
             var pick = null;
             if (prev && $("#meetingSelect option[value='" + prev + "']").length) {
             pick = prev;
@@ -69,7 +66,6 @@ var LeaderboardPageModel = (function () {
             state.meeting_key = pick;
             $("#meetingSelect").val(pick);
 
-            // load sessions
             loadSessionsForMeeting(pick, force);
         })
         .fail(function () {
@@ -78,10 +74,8 @@ var LeaderboardPageModel = (function () {
     }
 
     function formatMeetingLabel(m) {
-        // Example: "Monaco GP · May 26"
         var name = m.meeting_name || m.meeting_official_name || "Grand Prix";
         var d = m.date_start ? new Date(m.date_start) : null;
-
         if (!d || isNaN(d.getTime())) return name;
 
         var mon = d.toLocaleDateString(undefined, { month: "short" });
@@ -101,13 +95,12 @@ var LeaderboardPageModel = (function () {
         OpenF1API.sessions({ meeting_key: meetingKey })
         .done(function (sessions) {
             if (!Array.isArray(sessions) || sessions.length === 0) {
-            $("#lbMsg").text("No sessions found for this meeting.");
-            return;
+                $("#lbMsg").text("No sessions found for this meeting.");
+                return;
             }
 
-            // sort by date_start
             sessions.sort(function (a, b) {
-            return new Date(a.date_start).getTime() - new Date(b.date_start).getTime();
+                return new Date(a.date_start).getTime() - new Date(b.date_start).getTime();
             });
 
             // title from meeting/session fields
@@ -121,20 +114,19 @@ var LeaderboardPageModel = (function () {
             $("#sessionSelect").empty();
 
             for (var i = 0; i < sessions.length; i++) {
-            var s = sessions[i];
-            $("#sessionSelect").append(
-                $("<option>").val(String(s.session_key)).text(formatSessionLabel(s))
-            );
+                var s = sessions[i];
+                $("#sessionSelect").append(
+                    $("<option>").val(String(s.session_key)).text(formatSessionLabel(s))
+                );
             }
 
-            // default:
-            // keep prev if exists, else pick Race, else newest
             var pick = null;
             if (prev && $("#sessionSelect option[value='" + prev + "']").length) {
-            pick = prev;
-            } else {
-            var race = sessions.find(function (s) { return s.session_name === "Race"; });
-            pick = race ? String(race.session_key) : String(sessions[sessions.length - 1].session_key);
+                pick = prev;
+            } 
+            else {
+                var best = F1Data.pickBestSession(sessions);
+                pick = String(best.session_key);
             }
 
             state.session_key = pick;
@@ -149,7 +141,6 @@ var LeaderboardPageModel = (function () {
     }
 
     function formatSessionLabel(s) {
-        // Example: "Qualifying · Sat 14:00"
         var name = s.session_name || "Session";
         var d = s.date_start ? new Date(s.date_start) : null;
         if (!d || isNaN(d.getTime())) return name;
@@ -165,67 +156,102 @@ var LeaderboardPageModel = (function () {
         $("#driversBody").empty();
 
         $.when(
-        OpenF1API.drivers({ session_key: sessionKey }),
-        OpenF1API.sessionResult({ session_key: sessionKey })
-        ).done(function (driversRes, resultRes) {
-        var drivers = driversRes[0] || [];
-        var results = resultRes[0] || [];
+            F1Data.getDriversForSession(sessionKey),
+            OpenF1API.sessionResult({ session_key: sessionKey })
+        )
+        .done(function (normRes, resultRes) {
 
-        var byNum = {};
-        for (var i = 0; i < drivers.length; i++) {
-            byNum[String(drivers[i].driver_number)] = drivers[i];
-        }
+            // normRes might be either:
+            // 1) normalized array (if F1Data returns a plain Promise), OR
+            // 2) [data, status, xhr] (if F1Data uses $.ajax / $.getJSON)
+            var normDrivers = Array.isArray(normRes) ? normRes : (normRes && normRes[0]) || [];
 
-        render(results, byNum);
-        $("#lbMsg").text(results.length ? "" : "No results found for this session.");
-        }).fail(function () {
-        $("#lbMsg").text("Failed to load drivers/results.");
+            // sessionResult is jQuery ajax => [data, status, xhr]
+            var results = (resultRes && resultRes[0]) || [];
+
+            var byNum = {};
+            for (var i = 0; i < normDrivers.length; i++) {
+            byNum[String(normDrivers[i].number)] = normDrivers[i];
+            }
+
+            render(results, byNum);
+            $("#lbMsg").text(results.length ? "" : "No results found for this session.");
+        })
+        .fail(function (xhr) {
+            console.error("loadResultsForSession fail:", xhr);
+            $("#lbMsg").text("Failed to load drivers/results.");
         });
-    }
-
-    function render(results, byNum) {
-        var prefs = UserPrefsModel.load();
-        var favDriver = (prefs.favoriteDriver || "").trim().toLowerCase();
-        var favTeam = (prefs.favoriteTeam || "").trim().toLowerCase();
-
-        results = (results || []).slice().sort(function (a, b) {
-        return (a.position || 999) - (b.position || 999);
-        });
-
-        var $body = $("#driversBody").empty();
-
-        for (var i = 0; i < results.length; i++) {
-        var r = results[i];
-        var num = String(r.driver_number || "");
-        var d = byNum[num] || {};
-
-        var fullName = (d.full_name || "").trim();
-        if (!fullName) {
-            var fn = (d.first_name || "").trim();
-            var ln = (d.last_name || "").trim();
-            fullName = (fn || ln) ? (fn + (ln ? " " + ln : "")) : ("#" + num);
         }
 
-        var team = (d.team_name || "").trim();
-        var status = r.dsq ? "DSQ" : (r.dns ? "DNS" : (r.dnf ? "DNF" : "OK"));
 
-        var gap = (r.gap_to_leader === 0 || r.gap_to_leader === "0" || r.gap_to_leader === null)
-            ? "—"
-            : String(r.gap_to_leader);
+        function render(results, byNum) {
+            var prefs = UserPrefsModel.load();
+            var favDriver = (prefs.favoriteDriver || "").trim().toLowerCase();
+            var favTeam = (prefs.favoriteTeam || "").trim().toLowerCase();
 
-        var isFav =
-            (favDriver && fullName.toLowerCase() === favDriver) ||
-            (favTeam && team.toLowerCase() === favTeam);
+            results = (results || []).slice().sort(function (a, b) {
+                return (a.position || 999) - (b.position || 999);
+            });
 
-        var $tr = $("<tr>").toggleClass("lb-row-fav", isFav);
-        $tr.append($("<td>").text(r.position || ""));
-        $tr.append($("<td>").text(fullName));
-        $tr.append($("<td>").text(team || "—"));
-        $tr.append($("<td>").addClass("right").text(gap));
-        $tr.append($("<td>").addClass("right").text(status));
-        $body.append($tr);
+            var $body = $("#driversBody").empty();
+
+            for (var i = 0; i < results.length; i++) {
+                var r = results[i];
+                var num = String(r.driver_number || "");
+                var d = byNum[num] || {};
+
+                var fullName = (d.fullName || "").trim() || ("#" + num);
+                var team = (d.teamName || "").trim();
+                var status = r.dsq ? "DSQ" : (r.dns ? "DNS" : (r.dnf ? "DNF" : "OK"));
+
+                var gap = (r.gap_to_leader === 0 || r.gap_to_leader === "0" || r.gap_to_leader === null)
+                ? "—"
+                : String(r.gap_to_leader);
+
+                var isFav =
+                (favDriver && fullName.toLowerCase() === favDriver) ||
+                (favTeam && team.toLowerCase() === favTeam);
+
+                var $tr = $("<tr>").toggleClass("lb-row-fav", isFav);
+
+                $tr.append($("<td>").text(r.position || ""));
+
+                var $driverCell = $("<td>").addClass("lb-driver-cell");
+                if (d.headshotUrl) {
+                $driverCell.append(
+                    $("<img>").addClass("lb-headshot").attr("src", d.headshotUrl).attr("alt", fullName)
+                );
+                }
+
+                var $driverText = $("<div>").addClass("lb-driver-text");
+                $driverText.append($("<div>").addClass("lb-driver-name").text(fullName));
+
+                if (d.acronym || d.country || d.number) {
+                $driverText.append(
+                    $("<div>").addClass("lb-driver-sub muted").text(
+                    [(d.country || ""), (d.acronym || ""), (d.number ? ("#" + d.number) : "")]
+                        .filter(Boolean)
+                        .join(" • ")
+                    )
+                );
+                }
+
+                $driverCell.append($driverText);
+                $tr.append($driverCell);
+
+                var $teamCell = $("<td>");
+                if (d.teamColour) {
+                $teamCell.append($("<span>").addClass("lb-team-dot").css("background", "#" + d.teamColour));
+                }
+                $teamCell.append(document.createTextNode(team || "—"));
+                $tr.append($teamCell);
+
+                $tr.append($("<td>").addClass("right").text(gap));
+                $tr.append($("<td>").addClass("right").text(status));
+
+                $body.append($tr);
+            }
         }
-    }
 
     return { init: init };
 
