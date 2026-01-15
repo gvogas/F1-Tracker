@@ -6,11 +6,9 @@ var HeaderModel = {
       ? UserPrefsModel.load()
       : {};
 
-    var favText = HeaderModel.buildFavText(prefs);
-
     // root
     var header = $("<header>").addClass("site-header");
-    var inner = $("<div>").addClass("site-header__inner");
+    var inner  = $("<div>").addClass("site-header__inner");
 
     // brand
     var brand = $("<a>")
@@ -20,20 +18,18 @@ var HeaderModel = {
     var logo = $("<div>").addClass("site-brand__logo").attr("id", "headerLogo");
 
     var brandText = $("<div>").addClass("site-brand__text");
-
-    var title = $("<div>").addClass("site-brand__title").text("F1 Tracker");
+    var title     = $("<div>").addClass("site-brand__title").text("F1 Tracker");
 
     // favorites row: optional headshot + text
-    var favRow = $("<div>").addClass("site-brand__favrow");
+    var favRow    = $("<div>").addClass("site-brand__favrow");
     var favAvatar = $("<img/>")
       .attr({ id: "headerFavAvatar", alt: "Favorite driver" })
       .addClass("fav-avatar")
       .hide();
-
     var sub = $("<div/>")
       .addClass("site-brand__sub muted")
       .attr("id", "headerFavText")
-      .text(favText);
+      .text(HeaderModel.buildFavText(prefs));
 
     favRow.append(favAvatar, sub);
     brandText.append(title, favRow);
@@ -43,10 +39,11 @@ var HeaderModel = {
     var nav = $("<nav>").addClass("site-nav").attr("aria-label", "Primary");
 
     var links = [
-      { href: "home.html", label: "Home", key: "home", accesskey: "1" },
+      { href: "home.html",        label: "Home",        key: "home",        accesskey: "1" },
       { href: "leaderboard.html", label: "Leaderboard", key: "leaderboard", accesskey: "2" },
-      { href: "dashboard.html", label: "Dashboard", key: "dash", accesskey: "3" },
-      { href: "profile.html", label: "Profile", key: "profile", accesskey: "4" }
+      { href: "dashboard.html",   label: "Dashboard",   key: "dash",        accesskey: "3" },
+      { href: "races.html",       label: "Races",       key: "races",       accesskey: "4" },
+      { href: "profile.html",     label: "Profile",     key: "profile",     accesskey: "5" }
     ];
 
     for (var i = 0; i < links.length; i++) {
@@ -56,7 +53,8 @@ var HeaderModel = {
           .attr({
             href: links[i].href,
             "data-page": links[i].key,
-            accesskey: links[i].accesskey
+            accesskey: links[i].accesskey,
+            title: links[i].label + " (Alt+" + links[i].accesskey + ")"
           })
           .text(links[i].label)
       );
@@ -67,7 +65,7 @@ var HeaderModel = {
 
     var editFavBtn = $("<a>")
       .addClass("site-actions__btn")
-      .attr({ href: "profile.html", accesskey: "5" })
+      .attr({ href: "profile.html", accesskey: "6", title: "Edit Favorites (Alt+6)" })
       .text("Edit Favorites");
 
     var soundBtn = $("<button>")
@@ -77,17 +75,14 @@ var HeaderModel = {
 
     actions.append(editFavBtn, soundBtn);
 
-    // build
+    // assemble
     inner.append(brand, nav, actions);
     header.append(inner);
 
     // insert
     $("#header-container").html(header);
 
-    // active state
     HeaderModel.setActiveNav();
-
-    // set avatar immediately (if available)
     HeaderModel.refreshFavText();
 
     return header;
@@ -97,8 +92,10 @@ var HeaderModel = {
     var path = (window.location.pathname || "").toLowerCase();
     var page =
       path.includes("leaderboard") ? "leaderboard" :
-      path.includes("dashboard") ? "dashboard" :
-      path.includes("profile") ? "profile" :
+      path.includes("dashboard")   ? "dash" :
+      path.includes("races")       ? "races" :
+      path.includes("race")        ? "races" :
+      path.includes("profile")     ? "profile" :
       "home";
 
     $(".site-nav__link").removeClass("is-active");
@@ -107,7 +104,7 @@ var HeaderModel = {
 
   buildFavText: function (prefs) {
     return (prefs.favoriteDriver || prefs.favoriteTeam)
-      ? ("Fav: " + [prefs.favoriteDriver, prefs.favoriteTeam].filter(Boolean).join(" • "))
+      ? ("Fav: " + [prefs.favoriteDriver, prefs.favoriteTeam].filter(Boolean).join(" · "))
       : "No favorites set";
   },
 
@@ -117,27 +114,29 @@ var HeaderModel = {
       : {};
 
     var favText = (prefs.favoriteDriver || prefs.favoriteTeam)
-      ? ("Fav: " + [prefs.favoriteDriver, prefs.favoriteTeam].filter(Boolean).join(" • "))
+      ? ("Fav: " + [prefs.favoriteDriver, prefs.favoriteTeam].filter(Boolean).join(" · "))
       : "No favorites set";
 
     $("#headerFavText").text(favText);
 
-    // Use driver headshot as logo if available
     var headshot = (prefs.favoriteDriverHeadshot || "").trim();
+    var teamColor = (prefs.favoriteTeamColour || "").trim();
     var $logo = $("#headerLogo");
 
     if (headshot) {
       $logo
         .css({
           "background-image": "url(" + headshot + ")",
-          "background-size": "cover",
+          "background-size":  "cover",
           "background-position": "center"
         })
         .addClass("has-driver-logo");
+      if (teamColor) {
+        $logo.css("box-shadow", "0 0 18px #" + teamColor + "55");
+      }
     } else {
-      // fallback to default logo style
       $logo
-        .css({ "background-image": "" })
+        .css({ "background-image": "", "box-shadow": "" })
         .removeClass("has-driver-logo");
     }
   }

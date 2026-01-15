@@ -3,66 +3,74 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Live + Stats</title>
-
+  <title>Dashboard – F1 Tracker</title>
   <link rel="stylesheet" href="css/style.css" />
-
-  <!-- Font Awesome (remove integrity placeholder) -->
-  <link
-    rel="stylesheet"
-    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
-    crossorigin="anonymous"
-    referrerpolicy="no-referrer"
-  />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
 </head>
 
 <body>
   <div id="header-container"></div>
 
-  <div class="lb-controls">
-    <div class="select-wrap">
-      <select class="select" id="meetingSelect"></select>
-    </div>
-
-    <div class="select-wrap">
-      <select class="select" id="sessionSelect"></select>
-    </div>
-
-    <button class="btn ghost" id="refreshBtn" type="button">Refresh</button>
-  </div>
-
-  <div class="wxbar" id="weatherBar">
-    <div class="wxchip" id="wxTrc">
-      <div class="wxvalue">--</div>
-      <div class="wxlabel">TRC</div>
-    </div>
-
-    <div class="wxchip" id="wxAir">
-      <div class="wxvalue">--</div>
-      <div class="wxlabel">AIR</div>
-    </div>
-
-    <div class="wxchip" id="wxHum">
-      <div class="wxvalue">--</div>
-      <div class="wxlabel">HUM</div>
-    </div>
-
-    <div class="wxchip wxicon" id="wxRain">
-      <i class="fa-solid fa-cloud"></i>
-      <div class="wxlabel">RAIN</div>
-    </div>
-
-    <div class="wxchip wxicon" id="wxWind">
-      <div class="wxvalue">--</div>
-      <div class="wxlabel">-- m/s</div>
-    </div>
-  </div>
-
   <main>
-    <!-- ✅ ADD THIS: timing tower container -->
-    <section class="tower" id="tower"></section>
 
-    <h4>Development</h4>
+    <!-- Controls row -->
+    <div class="dash-controls">
+      <div class="select-wrap">
+        <select class="select" id="meetingSelect"></select>
+      </div>
+      <div class="select-wrap">
+        <select class="select" id="sessionSelect"></select>
+      </div>
+      <button class="btn ghost" id="refreshBtn" type="button">
+        <i class="fa-solid fa-rotate"></i> Refresh
+      </button>
+      <span class="live-badge" id="liveIndicator">IDLE</span>
+    </div>
+
+    <!-- Status message -->
+    <p class="dash-msg muted" id="lbMsg" style="display:none"></p>
+
+    <!-- Weather bar -->
+    <div class="wxbar" id="weatherBar">
+      <div class="wxchip" id="wxTrc">
+        <i class="fa-solid fa-road fa-xs" style="opacity:.5;margin-bottom:4px"></i>
+        <div class="wxvalue">--</div>
+        <div class="wxlabel">TRACK</div>
+      </div>
+      <div class="wxchip" id="wxAir">
+        <i class="fa-solid fa-wind fa-xs" style="opacity:.5;margin-bottom:4px"></i>
+        <div class="wxvalue">--</div>
+        <div class="wxlabel">AIR</div>
+      </div>
+      <div class="wxchip" id="wxHum">
+        <i class="fa-solid fa-droplet fa-xs" style="opacity:.5;margin-bottom:4px"></i>
+        <div class="wxvalue">--</div>
+        <div class="wxlabel">HUM</div>
+      </div>
+      <div class="wxchip wxicon" id="wxRain">
+        <i class="fa-solid fa-cloud"></i>
+        <div class="wxlabel">RAIN</div>
+      </div>
+      <div class="wxchip" id="wxWind">
+        <i class="fa-solid fa-location-arrow fa-xs" style="opacity:.5;margin-bottom:4px"></i>
+        <div class="wxvalue">--</div>
+        <div class="wxlabel">-- m/s</div>
+      </div>
+    </div>
+
+    <!-- Tower + track map -->
+    <div class="dash-body">
+      <section class="tower" id="tower"></section>
+      <div class="track-map-wrap">
+        <div class="track-map-head">
+          <span class="track-map-title">Track Position</span>
+          <span class="track-map-sub muted" id="lastUpdated"></span>
+        </div>
+        <canvas id="trackMap" class="track-map" width="300" height="300"></canvas>
+        <p class="track-map-hint muted">Select a session to see live car positions</p>
+      </div>
+    </div>
+
   </main>
 
   <!-- scripts -->
@@ -70,19 +78,17 @@
 
   <script src="core/lib/cookies.js"></script>
   <script src="core/lib/userPrefs.js"></script>
+  <script src="core/lib/utils.js"></script>
   <script src="core/ui/header.js"></script>
 
   <script src="core/api/openf1.api.js"></script>
 
   <script src="core/f1/f1.data.js"></script>
-
+  <script src="core/f1/f1.ui.js"></script>
   <script src="core/f1/weatherData.js"></script>
-
-  <!-- ✅ ADD THESE TWO (create these files) -->
   <script src="core/f1/towerData.js"></script>
   <script src="core/f1/towerUI.js"></script>
-
-  <script src="core/f1/f1.ui.js"></script>
+  <script src="core/f1/trackMap.js"></script>
 
   <script src="features/dashboard/dashboardPage.js"></script>
 </body>
