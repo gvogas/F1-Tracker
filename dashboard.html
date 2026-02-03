@@ -71,6 +71,45 @@
       </div>
     </div>
 
+    <!-- ===== AI Insights Panel ===== -->
+    <div class="ai-panel" id="aiPanel">
+      <div class="ai-panel-head">
+        <span class="ai-panel-title">
+          <i class="fa-solid fa-robot"></i> AI Insights
+        </span>
+        <button class="btn ghost" id="aiRefreshBtn" type="button">
+          <i class="fa-solid fa-wand-magic-sparkles"></i> Refresh
+        </button>
+        <span class="muted" id="aiNoToken" style="display:none;font-size:13px">
+          <i class="fa-solid fa-key" style="opacity:.5"></i>
+          <a href="profile.html" style="color:var(--accent)">Add your HuggingFace token</a> to unlock AI features
+        </span>
+        <span class="muted" id="aiLastRefresh" style="font-size:12px"></span>
+      </div>
+
+      <div class="ai-tabs">
+        <button class="ai-tab is-active" data-tab="aiCommentary">
+          <i class="fa-solid fa-broadcast-tower"></i> Commentary
+        </button>
+        <button class="ai-tab" data-tab="aiPerformance">
+          <i class="fa-solid fa-chart-line"></i> Performance
+        </button>
+        <button class="ai-tab" data-tab="aiPrediction">
+          <i class="fa-solid fa-crystal-ball"></i> Prediction
+        </button>
+      </div>
+
+      <div class="ai-content" id="aiCommentary">
+        <p class="muted" style="margin:0">Select a session to generate AI race commentary.</p>
+      </div>
+      <div class="ai-content" id="aiPerformance" style="display:none">
+        <p class="muted" style="margin:0">Select a session to analyze driver performance.</p>
+      </div>
+      <div class="ai-content" id="aiPrediction" style="display:none">
+        <p class="muted" style="margin:0">Select a session to predict the race outcome.</p>
+      </div>
+    </div>
+
   </main>
 
   <!-- scripts -->
@@ -89,6 +128,9 @@
   <script src="core/f1/towerData.js"></script>
   <script src="core/f1/towerUI.js"></script>
   <script src="core/f1/trackMap.js"></script>
+
+  <script src="core/api/huggingface.api.js"></script>
+  <script src="core/f1/aiInsights.js"></script>
 
   <script src="features/dashboard/dashboardPage.js"></script>
 </body>

@@ -21,6 +21,66 @@ var DashboardPageModel = (function () {
     weatherTimer = null;
   }
 
+  /* ===== AI Insights ===== */
+  var aiTimer = null;
+  var lastTowerRows = [];
+  var lastRaceControlRows = [];
+  var lastCurrentLap = 0;
+
+  function startAiRefresh() {
+    stopAiRefresh();
+    // Check token and update button visibility
+    if (typeof AiInsights !== "undefined") AiInsights.checkToken();
+    // Auto-refresh AI every 3 minutes during live session
+    aiTimer = setInterval(function () {
+      triggerAiRefresh();
+    }, 180000);
+    // Initial refresh after 5 seconds (give tower time to populate)
+    setTimeout(function () { triggerAiRefresh(); }, 5000);
+  }
+
+  function stopAiRefresh() {
+    if (aiTimer) clearInterval(aiTimer);
+    aiTimer = null;
+  }
+
+  function triggerAiRefresh() {
+    if (!state.session_key) return;
+    if (typeof AiInsights === "undefined" || typeof HuggingFaceAPI === "undefined") return;
+
+    // Fetch race control messages for commentary feature
+    F1Utils.safeAjax(
+      OpenF1API.raceControl({ session_key: state.session_key }),
+      "race_control"
+    ).done(function (rcRows) {
+      lastRaceControlRows = Array.isArray(rcRows) ? rcRows : [];
+      AiInsights.refreshAll(lastTowerRows, lastRaceControlRows, lastCurrentLap);
+    });
+
+    // Update last-refresh timestamp
+    var now = new Date();
+    $("#aiLastRefresh").text(
+      F1Utils.pad2(now.getHours()) + ":" +
+      F1Utils.pad2(now.getMinutes()) + ":" +
+      F1Utils.pad2(now.getSeconds())
+    );
+  }
+
+  /* ===== AI tab switching ===== */
+  function initAiTabs() {
+    $(document).on("click", ".ai-tab", function () {
+      var tabId = $(this).attr("data-tab");
+      $(".ai-tab").removeClass("is-active");
+      $(this).addClass("is-active");
+      $(".ai-content").hide();
+      $("#" + tabId).show();
+    });
+
+    $("#aiRefreshBtn").on("click", function () {
+      triggerAiRefresh();
+    });
+  }
+
   /* ===== Live tower polling ===== */
   var towerTimer = null;
   var lastTickMs = 0;
@@ -79,12 +139,14 @@ var DashboardPageModel = (function () {
       towerTimer = setInterval(tickLive, 1500);
     });
     setLiveIndicator(true);
+    startAiRefresh();
   }
 
   function stopTower() {
     if (towerTimer) clearInterval(towerTimer);
     towerTimer = null;
     setLiveIndicator(false);
+    stopAiRefresh();
   }
 
   function resetTowerState() {
@@ -92,8 +154,12 @@ var DashboardPageModel = (function () {
     cache.stints = [];
     cache.pits = [];
     lastSlowMs = 0;
+    lastTowerRows = [];
+    lastRaceControlRows = [];
+    lastCurrentLap = 0;
     $("#tower").empty();
     if (typeof TrackMap !== "undefined") TrackMap.clear();
+    if (typeof AiInsights !== "undefined") AiInsights.reset();
   }
 
   /* ===== Live tick ===== */
@@ -129,6 +195,14 @@ var DashboardPageModel = (function () {
         drivers: F1Data.normalizeDrivers(cache.driversRaw || []),
         carData: car || []
       });
+
+      lastTowerRows = rows;
+
+      // Capture current lap from the leader's lap count
+      if (rows.length) {
+        var leaderLap = Number(rows[0].lap) || 0;
+        if (leaderLap > lastCurrentLap) lastCurrentLap = leaderLap;
+      }
 
       TowerUI.render(rows);
 
@@ -191,6 +265,7 @@ var DashboardPageModel = (function () {
       }
     });
 
+    initAiTabs();
     loadMeetings(false);
     startWeatherAutoRefresh();
   }
