@@ -50,23 +50,21 @@
         </div>
       </div>
 
-      <!-- HuggingFace AI token -->
+      <!-- AI Proxy URL -->
       <div style="margin-top:18px;padding-top:18px;border-top:1px solid rgba(255,255,255,.07)">
-        <label class="lbl" for="hfToken" style="margin-top:0">
-          <i class="fa-solid fa-robot"></i> HuggingFace API Token
+        <label class="lbl" for="aiProxyUrl" style="margin-top:0">
+          <i class="fa-solid fa-robot"></i> AI Proxy URL
           <span class="muted" style="font-weight:400;font-size:11px;margin-left:6px">(optional — for AI features)</span>
         </label>
-        <input class="inp" id="hfToken" type="password"
-          placeholder="hf_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+        <input class="inp" id="aiProxyUrl" type="url"
+          placeholder="https://f1-ai-proxy.yourname.workers.dev"
           autocomplete="off" spellcheck="false" style="font-family:monospace;font-size:13px" />
         <p class="muted" style="font-size:12px;margin-top:6px;line-height:1.5">
-          Get a free read-only token at
-          <a href="https://huggingface.co/settings/tokens" target="_blank" rel="noopener"
-             style="color:var(--accent)">huggingface.co/settings/tokens</a>.
-          Enables <strong style="color:var(--text)">Race Commentary AI</strong>,
-          <strong style="color:var(--text)">Performance Analysis</strong>, and
-          <strong style="color:var(--text)">Outcome Prediction</strong> on the Dashboard.
-          Stored locally in your browser only — never sent anywhere except HuggingFace.
+          Deploy the included <code style="font-size:11px;background:rgba(255,255,255,.07);padding:1px 5px;border-radius:4px">worker/</code>
+          folder as a free Cloudflare Worker, then paste the URL here.
+          Your HuggingFace token lives as a Worker secret server-side —
+          it <strong style="color:var(--text)">never touches your browser</strong>.
+          Only the proxy URL (not sensitive) is saved locally.
         </p>
       </div>
 
