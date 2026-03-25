@@ -1,0 +1,19 @@
+RewriteEngine On
+
+# Block dotfiles
+<FilesMatch "^\\.">
+  Require all denied
+</FilesMatch>
+
+# Block sensitive files
+<FilesMatch "(composer\\.(json|lock)|package(-lock)?\\.json|README\\.md|\\.log|\\.env)$">
+  Require all denied
+</FilesMatch>
+
+# Block direct access to internal directories
+RedirectMatch 404 ^/(src|templates|var|vendor|cache)(/|$)
+
+# Front-controller: route everything to index.php
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^ index.php [QSA,L]
