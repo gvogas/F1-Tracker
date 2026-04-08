@@ -3,22 +3,23 @@ var RacePage = (function () {
   var state = {
     meeting_key:   null,
     session_key:   null,
-    session_start: null
+    session_start: null // ISO string
   };
 
-  var mode         = "stopped";
-  var replayTimer  = null;
+  var mode          = "stopped";
+  var replayTimer   = null;
   var replayClockMs = 0;
-  var replaySpeed  = 5; // 5x
+  var replaySpeed   = 5; // 5× default
 
+  /* ===== Init ===== */
   function init() {
+    if (typeof HeaderModel !== "undefined") HeaderModel.createHeader();
+
     state.meeting_key = getMeetingKeyFromUrl();
     if (!state.meeting_key) {
-      console.error("Missing meeting_key in URL");
+      showError("No meeting selected. Please go to Races and pick a session.");
       return;
     }
-
-    if (typeof HeaderModel !== "undefined") HeaderModel.createHeader();
 
     $("#playBtn").on("click",  startReplay);
     $("#stopBtn").on("click",  stopReplay);
@@ -34,31 +35,46 @@ var RacePage = (function () {
   /* ===== Sessions ===== */
   function loadSessions(meetingKey) {
     $("#sessionSelect").prop("disabled", true).empty();
-    $("#sessionSelect").append('<option value="">Select session</option>');
+    $("#sessionSelect").append('<option value="">Loading sessions…</option>');
 
     F1API.sessions({ meeting_key: meetingKey })
       .done(function (sessions) {
         sessions = Array.isArray(sessions) ? sessions : [];
+
+        sessions.sort(function (a, b) {
+          return Date.parse(a.dateStart) - Date.parse(b.dateStart);
+        });
+
+        $("#sessionSelect").empty();
+        $("#sessionSelect").append('<option value="">— Select session —</option>');
+
         for (var i = 0; i < sessions.length; i++) {
-          var s     = sessions[i]; // s.key, s.name, s.dateStart
+          var s     = sessions[i]; // PHP camelCase: s.key, s.name, s.dateStart
           var label = s.name || ("Session " + s.key);
+          var d     = s.dateStart ? new Date(s.dateStart) : null;
+          if (d && !isNaN(d)) {
+            label += " · " + d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+          }
           $("#sessionSelect").append(
             $("<option>")
               .val(s.key)
               .attr("data-start", s.dateStart || "")
-              .text(esc(label))
+              .text(label)
           );
         }
 
         var best = F1Data.pickBestSession(sessions);
-        state.session_key   = best.key;
-        state.session_start = best.dateStart || null;
+        state.session_key   = best ? best.key : null;
+        state.session_start = (best && best.dateStart) ? best.dateStart : null;
 
-        $("#sessionSelect").val(String(state.session_key)).prop("disabled", false);
+        if (state.session_key) {
+          $("#sessionSelect").val(String(state.session_key));
+        }
+        $("#sessionSelect").prop("disabled", false);
         onSessionChanged();
       })
-      .fail(function (xhr) {
-        console.error("sessions failed", xhr);
+      .fail(function () {
+        showError("Failed to load sessions. Check your connection.");
         $("#sessionSelect").prop("disabled", false);
       });
   }
@@ -78,7 +94,6 @@ var RacePage = (function () {
     setStopwatch(0);
     tickReplay(true);
 
-    // Load AI strategy card once session is selected
     loadAiStrategy(state.session_key);
   }
 
@@ -133,8 +148,8 @@ var RacePage = (function () {
   // Convert PHP tower rows → TowerUI format
   function adaptRows(rows) {
     return (rows || []).map(function (r) {
-      var driver   = r.driver || {};
-      var compound = String(r.compound || "");
+      var driver    = r.driver || {};
+      var compound  = String(r.compound || "");
       var tyreClass = compound === "S" ? "soft"
                     : compound === "M" ? "med"
                     : compound === "H" ? "hard" : "";
@@ -166,7 +181,7 @@ var RacePage = (function () {
     });
   }
 
-  /* ===== AI ===== */
+  /* ===== AI Strategy ===== */
   function loadAiStrategy(sessionKey) {
     F1API.aiTyreStrategy(sessionKey)
       .done(function (res) {
@@ -188,11 +203,9 @@ var RacePage = (function () {
     return (Number(n) < 10 ? "0" : "") + Number(n);
   }
 
-  function esc(s) {
-    return String(s == null ? "" : s)
-      .replace(/&/g, "&amp;").replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;").replace(/"/g, "&quot;")
-      .replace(/'/g, "&#039;");
+  function showError(msg) {
+    var $err = $("<div>").addClass("dash-msg error-msg").text(msg);
+    $("main").prepend($err);
   }
 
   return { init: init };
