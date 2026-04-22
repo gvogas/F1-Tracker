@@ -54,46 +54,4 @@ var F1Data = {
     // PHP already returns normalised drivers; no extra normalisation needed
   },
 
-  // drivers for a given session_key (already normalised by PHP)
-  getDriversForSession: function (session_key) {
-    return F1API.drivers({ session_key: session_key });
-  },
-
-  /* =========================
-     LEGACY NORMALIZER (kept for towerData.js compatibility)
-     Handles both snake_case (OpenF1 raw) and camelCase (PHP API) shapes.
-  ========================= */
-
-  normalizeDrivers: function (list) {
-    list = Array.isArray(list) ? list : [];
-
-    var byNumber = {};
-    for (var i = 0; i < list.length; i++) {
-      var d = list[i] || {};
-
-      // Support both PHP (camelCase) and raw OpenF1 (snake_case) shapes
-      var num = Number(d.number || d.driver_number);
-      if (!num || isNaN(num)) continue;
-
-      byNumber[num] = {
-        number:        num,
-        firstName:     d.firstName  || d.first_name  || "",
-        lastName:      d.lastName   || d.last_name   || "",
-        fullName:      d.fullName   || d.full_name   ||
-                       ((d.firstName || d.first_name || "") + " " + (d.lastName || d.last_name || "")).trim(),
-        acronym:       d.acronym    || d.name_acronym || "",
-        broadcastName: d.broadcastName || d.broadcast_name || "",
-        country:       d.countryCode   || d.country_code   || "",
-        teamName:      d.teamName   || d.team_name   || "Unknown",
-        teamColour:    d.teamColour || d.team_colour || null,
-        headshotUrl:   d.headshotUrl || d.headshot_url || "",
-        meetingKey:    d.meetingKey  || d.meeting_key  || null,
-        sessionKey:    d.sessionKey  || d.session_key  || null,
-      };
-    }
-
-    return Object.keys(byNumber)
-      .map(function (k) { return byNumber[k]; })
-      .sort(function (a, b) { return a.number - b.number; });
-  },
 };
