@@ -1,134 +1,109 @@
 var ProfilePageModel = {
 
-  DRIVER_PLACEHOLDER: "Click a driver below",
-  TEAM_PLACEHOLDER: "Click a driver below",
+  DRIVER_PLACEHOLDER: "Click a driver to select",
+  TEAM_PLACEHOLDER:   "Auto-filled from driver",
 
   state: {
-    year: new Date().getFullYear(),
-    drivers: [],
+    year:           new Date().getFullYear(),
+    drivers:        [],
     selectedDriver: null
   },
 
   init: function () {
-    HeaderModel.createHeader();
+    if (typeof HeaderModel !== "undefined") HeaderModel.createHeader();
 
-    // load prefs into form
     var prefs = (typeof UserPrefsModel !== "undefined" && UserPrefsModel.load)
       ? UserPrefsModel.load()
       : {};
 
-    $("#name").val(prefs.name || "");
-
     F1UI.setPill("#favoriteDriver", prefs.favoriteDriver || "", ProfilePageModel.DRIVER_PLACEHOLDER);
-    F1UI.setPill("#favoriteTeam", prefs.favoriteTeam || "", ProfilePageModel.TEAM_PLACEHOLDER);
+    F1UI.setPill("#favoriteTeam",   prefs.favoriteTeam   || "", ProfilePageModel.TEAM_PLACEHOLDER);
 
-    // bind events
     ProfilePageModel.bindEvents();
-
-    // load drivers
     ProfilePageModel.loadDrivers();
   },
 
   bindEvents: function () {
-    // search
-    $("#driverSearch").on("input", function () {
+    $("#searchInput").on("input", function () {
       ProfilePageModel.repaintGrid();
     });
 
-    // click driver chip/card sets BOTH driver + team
     $(document).on("click", ".chip[data-type='driver']", function () {
       var num = String($(this).data("num") || "").trim();
-      var d = ProfilePageModel.findDriverByNum(num);
+      var d   = ProfilePageModel.findDriverByNum(num);
       if (!d) return;
 
       ProfilePageModel.state.selectedDriver = d;
-
       F1UI.setPill("#favoriteDriver", d.fullName || "", ProfilePageModel.DRIVER_PLACEHOLDER);
-      F1UI.setPill("#favoriteTeam", d.teamName || "", ProfilePageModel.TEAM_PLACEHOLDER);
+      F1UI.setPill("#favoriteTeam",   d.teamName || "", ProfilePageModel.TEAM_PLACEHOLDER);
 
       ProfilePageModel.repaintGrid();
-      $("#msg").text("").hide();
+      $("#profileMsg").text("").hide();
     });
 
-    $("#saveBtn").on("click", function () {
-      ProfilePageModel.save();
-    });
-
-    $("#clearBtn").on("click", function () {
-      ProfilePageModel.clear();
-    });
+    $("#saveBtn").on("click",  function () { ProfilePageModel.save();  });
+    $("#clearBtn").on("click", function () { ProfilePageModel.clear(); });
   },
 
   loadDrivers: function () {
-    $("#msg").text("Loading drivers from OpenF1...").show();
+    $("#profileMsg").text("Loading drivers…").show();
+    $("#driverGrid").html(ProfilePageModel.buildSkeleton(6));
 
     F1Data.getLatestDrivers(ProfilePageModel.state.year)
       .then(function (drivers) {
-        ProfilePageModel.state.drivers = drivers || [];
-        $("#msg").text("").hide();
+        ProfilePageModel.state.drivers = Array.isArray(drivers) ? drivers : [];
+        $("#profileMsg").text("").hide();
         ProfilePageModel.repaintGrid();
       })
       .catch(function () {
         ProfilePageModel.state.drivers = [];
-        $("#msg").text("Failed to load drivers from OpenF1.").show();
-        ProfilePageModel.repaintGrid();
+        $("#profileMsg").text("Failed to load drivers. Check your connection.").show();
+        $("#driverGrid").empty();
       });
   },
 
   save: function () {
     var driverName = F1UI.getPillValue("#favoriteDriver");
-    var teamName = F1UI.getPillValue("#favoriteTeam");
+    var teamName   = F1UI.getPillValue("#favoriteTeam");
+    var d          = ProfilePageModel.state.selectedDriver;
 
-    var next = {
-      name: $("#name").val().trim(),
-      favoriteDriver: driverName,
-      favoriteTeam: teamName
-    };
-
-    // extra fields for auto-fill elsewhere
-    var d = ProfilePageModel.state.selectedDriver;
+    var next = { favoriteDriver: driverName, favoriteTeam: teamName };
     if (d) {
-      next.favoriteDriverNumber = d.number || "";
-      next.favoriteDriverAcronym = d.acronym || "";
+      next.favoriteDriverNumber  = d.number      || "";
+      next.favoriteDriverAcronym = d.acronym     || "";
       next.favoriteDriverHeadshot = d.headshotUrl || "";
-      next.favoriteTeamColour = d.teamColour || "";
+      next.favoriteTeamColour    = d.teamColour  || "";
     }
 
-    if (typeof UserPrefsModel !== "undefined" && UserPrefsModel.save) {
-      UserPrefsModel.save(next);
-    }
+    UserPrefsModel.save(next);
 
     if (typeof HeaderModel !== "undefined" && HeaderModel.refreshFavText) {
       HeaderModel.refreshFavText();
     }
 
     ProfilePageModel.repaintGrid();
-    $("#msg").text("Saved.").fadeIn(0).delay(900).fadeOut(250);
+    $("#profileMsg").text("Saved!").show();
+    setTimeout(function () { $("#profileMsg").fadeOut(300); }, 1500);
   },
 
   clear: function () {
-    if (typeof UserPrefsModel !== "undefined" && UserPrefsModel.clear) {
-      UserPrefsModel.clear();
-    }
-
-    $("#name").val("");
-
+    UserPrefsModel.clear();
     ProfilePageModel.state.selectedDriver = null;
-
     F1UI.setPill("#favoriteDriver", "", ProfilePageModel.DRIVER_PLACEHOLDER);
-    F1UI.setPill("#favoriteTeam", "", ProfilePageModel.TEAM_PLACEHOLDER);
+    F1UI.setPill("#favoriteTeam",   "", ProfilePageModel.TEAM_PLACEHOLDER);
 
     if (typeof HeaderModel !== "undefined" && HeaderModel.refreshFavText) {
       HeaderModel.refreshFavText();
     }
 
     ProfilePageModel.repaintGrid();
-    $("#msg").text("Cleared.").fadeIn(0).delay(900).fadeOut(250);
+    $("#profileMsg").text("Cleared.").show();
+    setTimeout(function () { $("#profileMsg").fadeOut(300); }, 1500);
   },
 
   repaintGrid: function () {
     F1UI.renderDriverGrid($("#driverGrid"), ProfilePageModel.state.drivers, {
-      search: $("#driverSearch").val(),
+      search:       $("#searchInput").val(),
       selectedName: F1UI.getPillValue("#favoriteDriver")
     });
   },
@@ -141,10 +116,15 @@ var ProfilePageModel = {
       }
     }
     return null;
-  }
+  },
 
+  buildSkeleton: function (count) {
+    var html = "";
+    for (var i = 0; i < count; i++) {
+      html += '<div class="skel" style="height:56px;border-radius:12px;margin-bottom:8px"></div>';
+    }
+    return html;
+  }
 };
 
-$(document).ready(function () {
-  ProfilePageModel.init();
-});
+$(document).ready(function () { ProfilePageModel.init(); });

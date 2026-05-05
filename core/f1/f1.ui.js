@@ -57,7 +57,7 @@ var F1UI = {
         nameWrap.append(
             $("<div/>")
             .addClass("chip-sub muted")
-            .text([d.country, d.acronym, d.number ? ("#" + d.number) : ""].filter(Boolean).join(" • "))
+            .text([(d.countryCode || d.country), d.acronym, d.number ? ("#" + d.number) : ""].filter(Boolean).join(" • "))
         );
 
         left.append(nameWrap);

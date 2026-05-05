@@ -1,0 +1,6 @@
+cache/*.json
+var/*.log
+vendor/
+.env
+node_modules/
+*.local

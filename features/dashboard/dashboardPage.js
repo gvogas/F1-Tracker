@@ -1,285 +1,295 @@
 var DashboardPageModel = (function () {
 
   var state = {
-    year: new Date().getFullYear(),
+    year:        new Date().getFullYear(),
     meeting_key: null,
     session_key: null
   };
 
-  // ===== Weather auto-refresh =====
+  /* ===== Weather auto-refresh ===== */
   var weatherTimer = null;
 
-  function startWeatherAutoRefresh() {
-    stopWeatherAutoRefresh();
+  function startWeatherRefresh() {
+    stopWeatherRefresh();
     weatherTimer = setInterval(function () {
-      if (state.session_key) loadWeatherForSession(state.session_key);
+      if (state.session_key) loadWeather(state.session_key);
     }, 60000);
   }
 
-  function stopWeatherAutoRefresh() {
-    if (weatherTimer) clearInterval(weatherTimer);
+  function stopWeatherRefresh() {
+    clearInterval(weatherTimer);
     weatherTimer = null;
   }
 
-  // ===== Tower polling + caching =====
+  /* ===== Live tower polling ===== */
   var towerTimer = null;
-
-  // caches (so we don't refetch huge stuff every tick)
-  var cache = {
-    driversRaw: [],
-    stints: [],
-    pits: [],
-    laps: [],
-    carData: []
-  };
-
-  // time windows / intervals
-  var carSince = null;
-
-  var lastCar = 0;      // 2.5s
-  var lastLaps = 0;     // 5s
-  var lastSlow = 0;     // 10s
-
-  // backoff when API says 429
-  var backoffUntil = 0;
 
   function startTower() {
     stopTower();
     tickTower();
-    towerTimer = setInterval(tickTower, 1000);
+    towerTimer = setInterval(tickTower, 2500);
+    setLiveIndicator(true);
   }
 
   function stopTower() {
-    if (towerTimer) clearInterval(towerTimer);
+    clearInterval(towerTimer);
     towerTimer = null;
-  }
-
-  function resetTowerState() {
-    cache.driversRaw = [];
-    cache.stints = [];
-    cache.pits = [];
-    cache.laps = [];
-    cache.carData = [];
-
-    carSince = null;
-
-    lastCar = 0;
-    lastLaps = 0;
-    lastSlow = 0;
-
-    backoffUntil = 0;
-
+    setLiveIndicator(false);
     $("#tower").empty();
+    if (typeof TrackMap !== "undefined") TrackMap.clear();
   }
 
-  function tickReplay(isInitial) {
-  if (!state.session_key) return;
+  function tickTower() {
+    if (!state.session_key) return;
 
-  if (!isInitial && Date.now() - lastSlowMs > 30000) warmCaches();
+    F1API.tower({ session_key: state.session_key })
+      .done(function (rows) {
+        TowerUI.render(TowerAdapter.adaptRows(rows));
 
-  var sk = state.session_key;
-  var tIso = new Date(replayClockMs).toISOString();
-
-  if (state.session_start) {
-    setStopwatchMs(replayClockMs - Date.parse(state.session_start));
+        var now = new Date();
+        var ts = F1Utils.pad2(now.getHours()) + ":" + F1Utils.pad2(now.getMinutes()) + ":" + F1Utils.pad2(now.getSeconds());
+        $("#lastUpdated").text("Updated " + ts);
+      })
+      .fail(function (xhr) {
+        if (xhr.status !== 429) console.warn("tower tick failed", xhr.status);
+      });
   }
 
-  // Smaller window to reduce 422/429 risk
-  var fromIso = new Date(replayClockMs - 2000).toISOString(); // last 2s
+  /* ===== Live indicator ===== */
+  function setLiveIndicator(active) {
+    var $el = $("#liveIndicator");
+    if (active) {
+      $el.addClass("is-live").text("● LIVE");
+    } else {
+      $el.removeClass("is-live").text("IDLE");
+    }
+  }
 
-  $.when(
-    safeAjax(OpenF1API.position({ session_key: sk, date: "<=" + tIso }), "position"),
-    safeAjax(OpenF1API.intervals({ session_key: sk, date: "<=" + tIso }), "intervals"),
-    safeAjax(OpenF1API.carData({ session_key: sk, date: ">=" + fromIso }), "car_data"),
-    safeAjax(OpenF1API.laps({ session_key: sk, date_start: "<=" + tIso }), "laps")
-  ).done(function (pos, ints, car, laps) {
+  /* ===== AI cards ===== */
+  var aiCommentaryTimer = null;
+  var aiPredTimer       = null;
 
-    var rows = TowerData.build({
-      positions: pos || [],
-      intervals: ints || [],
-      stints: cache.stints || [],
-      pits: cache.pits || [],
-      laps: laps || [],
-      drivers: F1Data.normalizeDrivers(cache.driversRaw || []),
-      carData: car || []
+  function startAiRefresh() {
+    stopAiRefresh();
+
+    // Goal 6: commentary every 30s
+    aiCommentaryTimer = setInterval(function () {
+      if (state.session_key) loadAiCommentary(state.session_key);
+    }, 30000);
+
+    // Goal 9: prediction every 60s
+    aiPredTimer = setInterval(function () {
+      if (state.session_key) loadAiPrediction(state.session_key);
+    }, 60000);
+
+    // Load immediately on session start
+    if (state.session_key) {
+      loadAiCommentary(state.session_key);
+      loadAiPrediction(state.session_key);
+      loadAiRaceControl(state.session_key);
+      loadAiStrategy(state.session_key);
+    }
+  }
+
+  function stopAiRefresh() {
+    clearInterval(aiCommentaryTimer);
+    clearInterval(aiPredTimer);
+    aiCommentaryTimer = null;
+    aiPredTimer       = null;
+  }
+
+  function loadAiCommentary(sessionKey) {
+    F1API.aiCommentator(sessionKey)
+      .done(function (res) {
+        if (res && res.commentary) {
+          $("#aiCommentaryText").text(res.commentary);
+          $("#aiCommentaryCard").show();
+        }
+      });
+  }
+
+  function loadAiRaceControl(sessionKey) {
+    F1API.aiRaceControlExplain(sessionKey)
+      .done(function (res) {
+        if (res && res.explanation) {
+          $("#aiRCText").text(res.explanation);
+          $("#aiRCCard").show();
+        }
+      });
+  }
+
+  function loadAiPrediction(sessionKey) {
+    F1API.aiPerformance(sessionKey)
+      .done(function (res) {
+        if (res && res.prediction) {
+          $("#aiPredText").text(res.prediction);
+          $("#aiPredCard").show();
+        }
+      });
+  }
+
+  function loadAiStrategy(sessionKey) {
+    F1API.aiTyreStrategy(sessionKey)
+      .done(function (res) {
+        if (res && res.analysis) {
+          $("#aiStrategyText").text(res.analysis);
+          $("#aiStrategyCard").show();
+        }
+      });
+  }
+
+  /* ===== AI tab switching ===== */
+  function initAiTabs() {
+    $(document).on("click", ".ai-tab", function () {
+      var tabId = $(this).attr("data-tab");
+      $(".ai-tab").removeClass("is-active");
+      $(this).addClass("is-active");
+      $(".ai-content").hide();
+      $("#" + tabId).show();
     });
 
-    TowerUI.render(rows);
-  });
-}
+    $("#aiRefreshBtn").on("click", function () {
+      if (state.session_key) {
+        loadAiCommentary(state.session_key);
+        loadAiPrediction(state.session_key);
+        loadAiRaceControl(state.session_key);
+        loadAiStrategy(state.session_key);
+      }
+    });
+  }
 
+  /* ===== Weather ===== */
+  function loadWeather(sessionKey) {
+    WeatherData.getLatestForSession(sessionKey)
+      .then(function (w) { WeatherData.renderToDashboard(w); })
+      .catch(function ()  { /* silent */ });
+  }
+
+  /* ===== Init ===== */
   function init() {
-    HeaderModel.createHeader();
+    if (typeof HeaderModel !== "undefined") HeaderModel.createHeader();
 
-    $("#refreshBtn").on("click", function () {
-      loadMeetings(true);
-    });
+    if (typeof TrackMap !== "undefined") {
+      TrackMap.init("trackMap");
+    }
+
+    $("#refreshBtn").on("click", function () { loadMeetings(true); });
 
     $("#meetingSelect").on("change", function () {
       state.meeting_key = Number($("#meetingSelect").val()) || null;
       state.session_key = null;
-
       stopTower();
-      resetTowerState();
-
+      stopAiRefresh();
       loadSessionsForMeeting(state.meeting_key, true);
     });
 
     $("#sessionSelect").on("change", function () {
       state.session_key = Number($("#sessionSelect").val()) || null;
-
       stopTower();
-      resetTowerState();
-
+      stopAiRefresh();
       if (state.session_key) {
-        loadWeatherForSession(state.session_key);
+        loadWeather(state.session_key);
         startTower();
+        startAiRefresh();
       }
     });
 
+    initAiTabs();
     loadMeetings(false);
-    startWeatherAutoRefresh();
+    startWeatherRefresh();
   }
 
-  /* =========================
-     Meetings
-  ========================= */
+  /* ===== Meetings ===== */
   function loadMeetings(force) {
     $("#meetingSelect").prop("disabled", true).empty();
     $("#sessionSelect").prop("disabled", true).empty();
-
     stopTower();
-    resetTowerState();
+    stopAiRefresh();
 
-    OpenF1API.meetings({ year: state.year })
+    F1API.meetings({ year: state.year })
       .done(function (meetings) {
         meetings = Array.isArray(meetings) ? meetings : [];
-        if (!meetings.length) throw new Error("No meetings found");
-
-        meetings.sort(function (a, b) {
-          return Date.parse(a.date_start) - Date.parse(b.date_start);
-        });
+        if (!meetings.length) {
+          $("#meetingSelect").prop("disabled", false);
+          return;
+        }
 
         $("#meetingSelect").append('<option value="">Select race</option>');
-
         for (var i = 0; i < meetings.length; i++) {
-          var m = meetings[i];
-          var label = (m.meeting_name || m.meeting_official_name || ("Meeting " + m.meeting_key));
-          $("#meetingSelect").append(
-            '<option value="' + m.meeting_key + '">' + escapeHtml(label) + '</option>'
-          );
+          var m     = meetings[i]; // PHP camelCase: m.key, m.name, m.dateStart
+          var label = m.name || m.officialName || ("Meeting " + m.key);
+          var d     = m.dateStart ? new Date(m.dateStart) : null;
+          if (d && !isNaN(d)) {
+            label += " · " + d.toLocaleDateString(undefined, { month: "short", day: "2-digit" });
+          }
+          $("#meetingSelect").append($("<option>").val(m.key).text(label));
         }
 
-        var picked = state.meeting_key;
-        if (force || !picked) {
-          picked = pickLatestStartedMeetingKey(meetings) || meetings[meetings.length - 1].meeting_key;
-        }
+        var picked = (force || !state.meeting_key)
+          ? pickLatestStarted(meetings)
+          : state.meeting_key;
+
+        if (!picked) picked = meetings[meetings.length - 1].key;
 
         state.meeting_key = picked;
-        $("#meetingSelect").val(String(picked));
-        $("#meetingSelect").prop("disabled", false);
-
-        loadSessionsForMeeting(state.meeting_key, false);
+        $("#meetingSelect").val(String(picked)).prop("disabled", false);
+        loadSessionsForMeeting(picked, false);
       })
-      .fail(function (xhr) {
-        console.error("meetings failed", xhr);
-      })
-      .always(function () {
-        $("#meetingSelect").prop("disabled", false);
-      });
+      .fail(function () { $("#meetingSelect").prop("disabled", false); });
   }
 
-  function pickLatestStartedMeetingKey(meetings) {
-    var now = Date.now();
+  function pickLatestStarted(meetings) {
+    var now     = Date.now();
     var started = meetings.filter(function (m) {
-      var t = Date.parse(m.date_start);
+      var t = Date.parse(m.dateStart);
       return !isNaN(t) && t <= now;
     });
     if (!started.length) return null;
-
-    started.sort(function (a, b) {
-      return Date.parse(a.date_start) - Date.parse(b.date_start);
-    });
-    return started[started.length - 1].meeting_key;
+    return started[started.length - 1].key;
   }
 
-  /* =========================
-     Sessions
-  ========================= */
-  function loadSessionsForMeeting(meeting_key, forcePick) {
+  /* ===== Sessions ===== */
+  function loadSessionsForMeeting(meetingKey, forcePick) {
     $("#sessionSelect").prop("disabled", true).empty();
-
-    if (!meeting_key) {
-      $("#sessionSelect").append('<option value="">Select session</option>');
-      $("#sessionSelect").prop("disabled", false);
+    if (!meetingKey) {
+      $("#sessionSelect").append('<option value="">Select session</option>').prop("disabled", false);
       return;
     }
 
-    OpenF1API.sessions({ meeting_key: meeting_key })
+    F1API.sessions({ meeting_key: meetingKey })
       .done(function (sessions) {
         sessions = Array.isArray(sessions) ? sessions : [];
-        if (!sessions.length) throw new Error("No sessions found");
-
-        sessions.sort(function (a, b) {
-          return Date.parse(a.date_start) - Date.parse(b.date_start);
-        });
+        if (!sessions.length) {
+          $("#sessionSelect").prop("disabled", false);
+          return;
+        }
 
         $("#sessionSelect").append('<option value="">Select session</option>');
-
         for (var i = 0; i < sessions.length; i++) {
-          var s = sessions[i];
-          var label = s.session_name || ("Session " + s.session_key);
-          $("#sessionSelect").append(
-            '<option value="' + s.session_key + '">' + escapeHtml(label) + '</option>'
-          );
+          var s     = sessions[i]; // PHP camelCase: s.key, s.name, s.dateStart
+          var label = s.name || ("Session " + s.key);
+          var d     = s.dateStart ? new Date(s.dateStart) : null;
+          if (d && !isNaN(d)) {
+            label += " · " + d.toLocaleDateString(undefined, { weekday: "short" }) + " " +
+              d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+          }
+          $("#sessionSelect").append($("<option>").val(s.key).text(label));
         }
 
-        var picked = state.session_key;
-        if (forcePick || !picked) {
-          var best = F1Data.pickBestSession(sessions);
-          picked = best.session_key;
-        }
+        var picked = (forcePick || !state.session_key)
+          ? F1Data.pickBestSession(sessions).key
+          : state.session_key;
 
         state.session_key = picked;
-        $("#sessionSelect").val(String(picked));
-        $("#sessionSelect").prop("disabled", false);
+        $("#sessionSelect").val(String(picked)).prop("disabled", false);
 
         stopTower();
-        resetTowerState();
-
-        loadWeatherForSession(state.session_key);
+        stopAiRefresh();
+        loadWeather(state.session_key);
         startTower();
+        startAiRefresh();
       })
-      .fail(function (xhr) {
-        console.error("sessions failed", xhr);
-      })
-      .always(function () {
-        $("#sessionSelect").prop("disabled", false);
-      });
-  }
-
-  /* =========================
-     Weather
-  ========================= */
-  function loadWeatherForSession(session_key) {
-    WeatherData.getLatestForSession(session_key)
-      .then(function (w) {
-        WeatherData.renderToDashboard(w);
-      })
-      .catch(function (err) {
-        console.error("weather failed", err);
-      });
-  }
-
-  function escapeHtml(str) {
-    str = String(str == null ? "" : str);
-    return str
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;")
-      .replace(/'/g, "&#039;");
+      .fail(function () { $("#sessionSelect").prop("disabled", false); });
   }
 
   return { init: init };

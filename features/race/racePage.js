@@ -1,127 +1,110 @@
 var RacePage = (function () {
 
   var state = {
-    meeting_key: null,
-    session_key: null,
+    meeting_key:   null,
+    session_key:   null,
     session_start: null // ISO string
   };
 
-  // ===== Replay =====
-  var mode = "stopped"; // "playing" | "stopped"
-  var replayTimer = null;
-
-  // replay clock (ms UTC)
+  var mode          = "stopped";
+  var replayTimer   = null;
   var replayClockMs = 0;
+  var replaySpeed   = 5; // 5× default
 
-  // how much replay time advances per real second
-  var replaySpeed = 5; // 5x
-
-  // caches (slow changing)
-  var cache = {
-    driversRaw: [],
-    stints: [],
-    pits: []
-  };
-
-  // polling frequency
-  var lastSlowMs = 0;
-
+  /* ===== Init ===== */
   function init() {
+    if (typeof HeaderModel !== "undefined") HeaderModel.createHeader();
+
     state.meeting_key = getMeetingKeyFromUrl();
     if (!state.meeting_key) {
-      console.error("Missing meeting_key in URL");
+      showError("No meeting selected. Please go to Races and pick a session.");
       return;
     }
 
-    $("#startBtn").on("click", startReplay);
-    $("#stopBtn").on("click", stopReplay);
+    $("#playBtn").on("click",  startReplay);
+    $("#stopBtn").on("click",  stopReplay);
 
     $("#sessionSelect").on("change", function () {
       state.session_key = Number($("#sessionSelect").val()) || null;
       onSessionChanged();
     });
 
-    loadSessionsForMeeting(state.meeting_key);
+    loadSessions(state.meeting_key);
   }
 
-  /* =========================
-     Sessions
-  ========================= */
-
-  function loadSessionsForMeeting(meeting_key) {
+  /* ===== Sessions ===== */
+  function loadSessions(meetingKey) {
     $("#sessionSelect").prop("disabled", true).empty();
-    $("#sessionSelect").append('<option value="">Select session</option>');
+    $("#sessionSelect").append('<option value="">Loading sessions…</option>');
 
-    OpenF1API.sessions({ meeting_key: meeting_key })
+    F1API.sessions({ meeting_key: meetingKey })
       .done(function (sessions) {
         sessions = Array.isArray(sessions) ? sessions : [];
-        sessions.sort(function (a, b) { return Date.parse(a.date_start) - Date.parse(b.date_start); });
+
+        sessions.sort(function (a, b) {
+          return Date.parse(a.dateStart) - Date.parse(b.dateStart);
+        });
+
+        $("#sessionSelect").empty();
+        $("#sessionSelect").append('<option value="">— Select session —</option>');
 
         for (var i = 0; i < sessions.length; i++) {
-          var s = sessions[i];
-          var label = s.session_name || ("Session " + s.session_key);
+          var s     = sessions[i]; // PHP camelCase: s.key, s.name, s.dateStart
+          var label = s.name || ("Session " + s.key);
+          var d     = s.dateStart ? new Date(s.dateStart) : null;
+          if (d && !isNaN(d)) {
+            label += " · " + d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+          }
           $("#sessionSelect").append(
-            '<option value="' + s.session_key + '" data-start="' + (s.date_start || "") + '">' +
-              escapeHtml(label) +
-            '</option>'
+            $("<option>")
+              .val(s.key)
+              .attr("data-start", s.dateStart || "")
+              .text(label)
           );
         }
 
-        // default: Race > Sprint > Quali > latest
         var best = F1Data.pickBestSession(sessions);
-        state.session_key = best.session_key;
-        state.session_start = best.date_start || null;
+        state.session_key   = best ? best.key : null;
+        state.session_start = (best && best.dateStart) ? best.dateStart : null;
 
-        $("#sessionSelect").val(String(state.session_key));
+        if (state.session_key) {
+          $("#sessionSelect").val(String(state.session_key));
+        }
         $("#sessionSelect").prop("disabled", false);
-
         onSessionChanged();
       })
-      .fail(function (xhr) {
-        console.error("sessions failed", xhr);
+      .fail(function () {
+        showError("Failed to load sessions. Check your connection.");
         $("#sessionSelect").prop("disabled", false);
       });
   }
 
   function onSessionChanged() {
-    stopReplay(); // reset UI + timers
-
+    stopReplay();
     if (!state.session_key) return;
 
-    // grab session_start from selected option
     var $opt = $("#sessionSelect option:selected");
     state.session_start = $opt.attr("data-start") || state.session_start;
 
-    // load weather once (and you can still add auto-refresh later)
     WeatherData.getLatestForSession(state.session_key)
       .then(function (w) { WeatherData.renderToDashboard(w); })
-      .catch(function (err) { console.error("weather failed", err); });
+      .catch(function () {});
 
-    // preload slow caches
-    warmCaches(function () {
-      // set replay clock to session start
-      replayClockMs = state.session_start ? Date.parse(state.session_start) : Date.now();
-      setStopwatchMs(0);
+    replayClockMs = state.session_start ? Date.parse(state.session_start) : Date.now();
+    setStopwatch(0);
+    tickReplay(true);
 
-      // render once at start time (stopped state)
-      tickReplay(true);
-    });
+    loadAiStrategy(state.session_key);
   }
 
-  /* =========================
-     Replay start/stop + stopwatch
-  ========================= */
-
+  /* ===== Replay ===== */
   function startReplay() {
     if (!state.session_key) return;
-
     mode = "playing";
-    $("#startBtn").prop("disabled", true);
-    $("#stopBtn").prop("disabled", false);
-
-    if (replayTimer) clearInterval(replayTimer);
+    $("#playBtn").prop("disabled", true);
+    $("#stopBtn").prop("disabled", false).show();
+    clearInterval(replayTimer);
     replayTimer = setInterval(function () {
-      // advance replay time
       replayClockMs += replaySpeed * 1000;
       tickReplay(false);
     }, 1000);
@@ -129,134 +112,67 @@ var RacePage = (function () {
 
   function stopReplay() {
     mode = "stopped";
-
-    if (replayTimer) clearInterval(replayTimer);
+    clearInterval(replayTimer);
     replayTimer = null;
-
-    $("#startBtn").prop("disabled", false);
-    $("#stopBtn").prop("disabled", true);
+    $("#playBtn").prop("disabled", false);
+    $("#stopBtn").prop("disabled", true).hide();
   }
 
-  function setStopwatchMs(msSinceStart) {
-    if (msSinceStart < 0) msSinceStart = 0;
-
-    var totalSeconds = Math.floor(msSinceStart / 1000);
-    var hh = Math.floor(totalSeconds / 3600);
-    var mm = Math.floor((totalSeconds % 3600) / 60);
-    var ss = totalSeconds % 60;
-
-    $("#stopwatch").text(
-      pad2(hh) + ":" + pad2(mm) + ":" + pad2(ss)
-    );
+  function setStopwatch(msSinceStart) {
+    msSinceStart = Math.max(0, msSinceStart);
+    var total = Math.floor(msSinceStart / 1000);
+    var hh = Math.floor(total / 3600);
+    var mm = Math.floor((total % 3600) / 60);
+    var ss = total % 60;
+    $("#stopwatch").text(pad(hh) + ":" + pad(mm) + ":" + pad(ss));
   }
-
-  /* =========================
-     Data fetch + render at a given replay time
-  ========================= */
-
-    function safeAjax(jqXhr, label) {
-    var d = $.Deferred();
-    jqXhr
-        .done(function (data) { d.resolve(data); })
-        .fail(function (xhr) {
-        console.warn(label + " failed", xhr && xhr.status, xhr && xhr.responseText);
-        d.resolve([]); // IMPORTANT: keep replay alive
-        });
-    return d.promise();
-    }
-
-    function warmCaches(done) {
-    $.when(
-        safeAjax(OpenF1API.drivers({ session_key: state.session_key }), "drivers"),
-        safeAjax(OpenF1API.stints({ session_key: state.session_key }), "stints"),
-        safeAjax(OpenF1API.pit({ session_key: state.session_key }), "pit")
-    ).done(function (drv, st, pit) {
-        cache.driversRaw = drv || [];
-        cache.stints = st || [];
-        cache.pits = pit || [];
-        lastSlowMs = Date.now();
-        done && done();
-    });
-    }
-
 
   function tickReplay(isInitial) {
     if (!state.session_key) return;
 
-    // refresh slow caches every 30s during replay (optional)
-    if (!isInitial && Date.now() - lastSlowMs > 30000) {
-      warmCaches();
+    if (state.session_start) {
+      setStopwatch(replayClockMs - Date.parse(state.session_start));
     }
-
-    var sk = state.session_key;
 
     var tIso = new Date(replayClockMs).toISOString();
 
-    // stopwatch = replayClock - session_start
-    if (state.session_start) {
-      setStopwatchMs(replayClockMs - Date.parse(state.session_start));
-    }
-
-    // keep windows small to avoid 422/429
-    var fromIso = new Date(replayClockMs - 1500).toISOString(); // 1.5s before
-    // NOTE: if you try to use an upper-bound filter and it fails, remove it.
-    // We'll only use >= fromIso which is supported.
-
-    $.when(
-    // choose the latest records up to tIso
-    safeAjax(OpenF1API.position({ session_key: sk, date: "<=" + tIso }), "position"),
-    safeAjax(OpenF1API.intervals({ session_key: sk, date: "<=" + tIso }), "intervals"),
-
-    // car_data is huge: only request a tiny recent slice
-    safeAjax(OpenF1API.carData({ session_key: sk, date: ">=" + fromIso }), "car_data"),
-
-    // laps: pick latest lap up to tIso
-    safeAjax(OpenF1API.laps({ session_key: sk, date_start: "<=" + tIso }), "laps")
-    ).done(function (pos, ints, car, laps) {
-
-    var rows = TowerData.build({
-        positions: pos || [],
-        intervals: ints || [],
-        stints: cache.stints || [],
-        pits: cache.pits || [],
-        laps: laps || [],
-        drivers: F1Data.normalizeDrivers(cache.driversRaw || []),
-        carData: car || []
-    });
-
-    TowerUI.render(rows);
-    });
-
+    F1API.tower({ session_key: state.session_key, date: tIso })
+      .done(function (rows) {
+        TowerUI.render(TowerAdapter.adaptRows(rows));
+      })
+      .fail(function (xhr) {
+        if (!isInitial) console.warn("replay tick failed", xhr && xhr.status);
+      });
   }
 
-  /* =========================
-     Utils
-  ========================= */
+  /* ===== AI Strategy ===== */
+  function loadAiStrategy(sessionKey) {
+    F1API.aiTyreStrategy(sessionKey)
+      .done(function (res) {
+        if (res && res.analysis) {
+          $("#aiStrategyText").text(res.analysis);
+          $("#aiStrategyCard").show();
+        }
+      });
+  }
 
+  /* ===== Helpers ===== */
   function getMeetingKeyFromUrl() {
-    var p = new URLSearchParams(window.location.search);
+    var p  = new URLSearchParams(window.location.search);
     var mk = Number(p.get("meeting_key"));
     return mk || null;
   }
 
-  function pad2(n) {
-    n = Number(n) || 0;
-    return (n < 10 ? "0" : "") + n;
+  function pad(n) {
+    return (Number(n) < 10 ? "0" : "") + Number(n);
   }
 
-  function escapeHtml(str) {
-    str = String(str == null ? "" : str);
-    return str
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;")
-      .replace(/'/g, "&#039;");
+  function showError(msg) {
+    var $err = $("<div>").addClass("dash-msg error-msg").text(msg);
+    $("main").prepend($err);
   }
 
   return { init: init };
 })();
 
-$(document).ready(function () {
-  RacePage.init();
-});
+$(document).ready(function () { RacePage.init(); });
