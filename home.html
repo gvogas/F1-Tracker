@@ -3,89 +3,124 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>F1 Tracker</title>
+  <title>F1 Tracker – Live Formula 1 Data</title>
+  <meta name="description" content="Real-time Formula 1 live timing, race replay, track maps, and standings. Powered by the OpenF1 API." />
   <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
 </head>
 <body>
 
-    <div id="header-container"></div>
+  <div id="header-container"></div>
 
-    <!-- MAIN CONTENT -->
-    <main>
+  <main>
 
-        <!-- HERO -->
-        <section class="hero card">
-        <div class="hero-top">
-            <div class="hero-badge">OpenF1 • Jolpica</div>
-            <div class="hero-chip" id="favChip">Set your favorites in Profile</div>
-        </div>
+    <!-- HERO -->
+    <section class="hero card">
+      <div class="hero-top">
+        <div class="hero-badge">OpenF1 API &nbsp;·&nbsp; Live Data &nbsp;·&nbsp; Free</div>
+        <div class="hero-chip" id="favChip">Set your favorites in Profile</div>
+      </div>
 
-        <h1>F1 Tracker</h1>
-        <p class="muted hero-sub">
-            Track Formula 1 schedules, leaderboards, and live race data.
-        </p>
+      <h1>F1 Tracker</h1>
+      <p class="muted hero-sub">
+        Real-time Formula 1 live timing, race replays, track position maps, and full session standings — all in your browser, no sign-up required.
+      </p>
 
-        <div class="cta">
-            <a class="btn" href="leaderboard.html">Leaderboard</a>
-            <a class="btn ghost" href="dashboard.html">Dashboard</a>
-            <a class="btn ghost" href="profile.html">Profile</a>
-        </div>
-
-        <div class="hero-stats">
-            <div class="stat">
-            <div class="stat-num" id="statSeason">—</div>
-            <div class="stat-label">Season</div>
-            </div>
-            <div class="stat">
-            <div class="stat-num">0</div>
-            <div class="stat-label">API Keys</div>
-            </div>
-            <div class="stat">
-            <div class="stat-num">Client</div>
-            <div class="stat-label">Only</div>
-            </div>
-        </div>
-        </section>
-
-        <!-- FEATURES -->
-        <section class="grid">
-        <a class="card card-link" href="profile.html">
-            <h2>Profile</h2>
-            <p class="muted">Save your favorite driver and team using cookies.</p>
+      <div class="cta">
+        <a class="btn" href="dashboard.html">
+          <i class="fa-solid fa-tower-broadcast"></i> Live Dashboard
         </a>
-
-        <a class="card card-link" href="leaderboard.html">
-            <h2>Leaderboard</h2>
-            <p class="muted">Browse races, sessions, and standings.</p>
+        <a class="btn ghost" href="leaderboard.html">
+          <i class="fa-solid fa-trophy"></i> Leaderboard
         </a>
-
-        <a class="card card-link" href="dashboard.html">
-            <h2>Live + Stats</h2>
-            <p class="muted">Live polling and session statistics.</p>
+        <a class="btn ghost" href="races.html">
+          <i class="fa-solid fa-flag-checkered"></i> Races
         </a>
-        </section>
+        <a class="btn ghost" href="profile.html">
+          <i class="fa-solid fa-user"></i> Profile
+        </a>
+      </div>
 
-        <!-- ABOUT -->
-        <section class="card about">
-        <h2>About</h2>
-        <ul class="bullets muted">
-            <li>Client-side only (no Node / Express yet)</li>
-            <li>User preferences stored in cookies</li>
-            <li>Live data depends on API availability</li>
-        </ul>
-        </section>
+      <div class="hero-stats">
+        <div class="stat">
+          <div class="stat-num" id="statSeason">—</div>
+          <div class="stat-label">Current Season</div>
+        </div>
+        <div class="stat">
+          <div class="stat-num">20+</div>
+          <div class="stat-label">Live Data Feeds</div>
+        </div>
+        <div class="stat">
+          <div class="stat-num">Free</div>
+          <div class="stat-label">No Login Required</div>
+        </div>
+      </div>
+    </section>
 
-    </main>
+    <!-- FEATURES -->
+    <section class="grid">
+      <a class="card card-link" href="dashboard.html">
+        <div class="card-icon">📡</div>
+        <h2>Live Dashboard</h2>
+        <p class="muted">Real-time timing tower with live car positions on the track map. 429-aware polling with exponential backoff.</p>
+      </a>
 
-    <!-- SCRIPTS  -->
+      <a class="card card-link" href="leaderboard.html">
+        <div class="card-icon">🏆</div>
+        <h2>Leaderboard</h2>
+        <p class="muted">Browse every Grand Prix and session. Full race results with driver headshots, team colors, and gap data.</p>
+      </a>
+
+      <a class="card card-link" href="races.html">
+        <div class="card-icon">🗓️</div>
+        <h2>Race Calendar</h2>
+        <p class="muted">Explore the full F1 calendar by year. Click any race to launch the replay player.</p>
+      </a>
+
+      <a class="card card-link" href="race.html?meeting_key=latest">
+        <div class="card-icon">▶️</div>
+        <h2>Race Replay</h2>
+        <p class="muted">Replay any session at 1×, 2×, 5× or 10× speed with live timing, tire data, DRS, and track map.</p>
+      </a>
+
+      <a class="card card-link" href="profile.html">
+        <div class="card-icon">⭐</div>
+        <h2>Profile</h2>
+        <p class="muted">Set your favorite driver and team. Your preference is highlighted across every page.</p>
+      </a>
+
+      <div class="card">
+        <div class="card-icon">🛠️</div>
+        <h2>Open Source</h2>
+        <p class="muted">Client-side only. No backend, no database — just HTML, CSS &amp; JavaScript powered by the free OpenF1 API.</p>
+      </div>
+    </section>
+
+    <!-- ABOUT -->
+    <section class="card about">
+      <h2>About</h2>
+      <ul class="bullets muted">
+        <li>Powered by the free, public <strong>OpenF1 API</strong> — no API key needed</li>
+        <li>Live timing tower with differential DOM updates (no full re-renders)</li>
+        <li>Canvas-based track position map drawn from GPS telemetry data</li>
+        <li>Race replay at selectable speeds (1×–10×) with seek scrubber</li>
+        <li>Rate-limit aware — exponential backoff on 429 responses</li>
+        <li>User favorites stored in cookies — no server required</li>
+        <li>Fully responsive — works on mobile, tablet, and desktop</li>
+      </ul>
+    </section>
+
+  </main>
+
+  <!-- Scripts -->
   <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
 
-    <script src="core/lib/cookies.js"></script>
-    <script src="core/lib/userPrefs.js"></script>
-    <script src="core/ui/header.js"></script>
+  <script src="core/lib/cookies.js"></script>
+  <script src="core/lib/userPrefs.js"></script>
+  <script src="core/lib/utils.js"></script>
+  <script src="core/ui/header.js"></script>
+  <script src="core/ui/sound.js"></script>
 
-    <script src="core/ui/sound.js"></script>
-
-    <script src="features/home/home.page.js"></script>
+  <script src="features/home/home.page.js"></script>
 </body>
 </html>

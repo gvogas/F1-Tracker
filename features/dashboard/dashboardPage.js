@@ -6,7 +6,7 @@ var DashboardPageModel = (function () {
     session_key: null
   };
 
-  // ===== Weather auto-refresh =====
+  /* ===== Weather auto-refresh ===== */
   var weatherTimer = null;
 
   function startWeatherAutoRefresh() {
@@ -21,95 +21,149 @@ var DashboardPageModel = (function () {
     weatherTimer = null;
   }
 
-  // ===== Tower polling + caching =====
+  /* ===== Live tower polling ===== */
   var towerTimer = null;
+  var lastTickMs = 0;
 
-  // caches (so we don't refetch huge stuff every tick)
+  // caches (slow-changing data — refreshed every 30s)
   var cache = {
     driversRaw: [],
     stints: [],
-    pits: [],
-    laps: [],
-    carData: []
+    pits: []
   };
 
-  // time windows / intervals
-  var carSince = null;
+  var lastSlowMs = 0;
 
-  var lastCar = 0;      // 2.5s
-  var lastLaps = 0;     // 5s
-  var lastSlow = 0;     // 10s
+  // 429 backoff tracked globally via F1Utils
 
-  // backoff when API says 429
-  var backoffUntil = 0;
+  /* ===== safeAjax (local wrapper — delegates to F1Utils) ===== */
+  function safeAjax(jqXhr, label) {
+    return F1Utils.safeAjax(jqXhr, label);
+  }
+
+  /* ===== warmCaches =====
+     Load slow-changing data for the current session once,
+     then refreshes every 30s during live polling.
+  ===== */
+  function warmCaches(done) {
+    var sk = state.session_key;
+    if (!sk) { done && done(); return; }
+
+    $.when(
+      safeAjax(OpenF1API.drivers({ session_key: sk }), "drivers"),
+      safeAjax(OpenF1API.stints({ session_key: sk }), "stints"),
+      safeAjax(OpenF1API.pit({ session_key: sk }), "pit")
+    ).done(function (drv, st, pit) {
+      cache.driversRaw = drv || [];
+      cache.stints = st || [];
+      cache.pits = pit || [];
+      lastSlowMs = Date.now();
+      done && done();
+    });
+
+    // Seed track map with historical location data (background, non-blocking)
+    if (typeof TrackMap !== "undefined") {
+      OpenF1API.location({ session_key: sk })
+        .done(function (locs) {
+          if (Array.isArray(locs) && locs.length) {
+            TrackMap.seedTrack(locs);
+          }
+        });
+    }
+  }
 
   function startTower() {
     stopTower();
-    tickTower();
-    towerTimer = setInterval(tickTower, 1000);
+    warmCaches(function () {
+      tickLive();
+      towerTimer = setInterval(tickLive, 1500);
+    });
+    setLiveIndicator(true);
   }
 
   function stopTower() {
     if (towerTimer) clearInterval(towerTimer);
     towerTimer = null;
+    setLiveIndicator(false);
   }
 
   function resetTowerState() {
     cache.driversRaw = [];
     cache.stints = [];
     cache.pits = [];
-    cache.laps = [];
-    cache.carData = [];
-
-    carSince = null;
-
-    lastCar = 0;
-    lastLaps = 0;
-    lastSlow = 0;
-
-    backoffUntil = 0;
-
+    lastSlowMs = 0;
     $("#tower").empty();
+    if (typeof TrackMap !== "undefined") TrackMap.clear();
   }
 
-  function tickReplay(isInitial) {
-  if (!state.session_key) return;
+  /* ===== Live tick ===== */
+  function tickLive() {
+    if (!state.session_key) return;
 
-  if (!isInitial && Date.now() - lastSlowMs > 30000) warmCaches();
+    // Skip tick when rate-limited
+    if (F1Utils.isBackingOff()) return;
 
-  var sk = state.session_key;
-  var tIso = new Date(replayClockMs).toISOString();
+    // Refresh slow caches every 30s
+    if (Date.now() - lastSlowMs > 30000) {
+      warmCaches();
+    }
 
-  if (state.session_start) {
-    setStopwatchMs(replayClockMs - Date.parse(state.session_start));
-  }
+    var sk = state.session_key;
+    var now = new Date();
+    var tIso = now.toISOString();
+    var fromIso = new Date(Date.now() - 2000).toISOString(); // last 2s for high-freq data
 
-  // Smaller window to reduce 422/429 risk
-  var fromIso = new Date(replayClockMs - 2000).toISOString(); // last 2s
+    $.when(
+      safeAjax(OpenF1API.position({ session_key: sk, date: "<=" + tIso }), "position"),
+      safeAjax(OpenF1API.intervals({ session_key: sk, date: "<=" + tIso }), "intervals"),
+      safeAjax(OpenF1API.carData({ session_key: sk, date: ">=" + fromIso }), "car_data"),
+      safeAjax(OpenF1API.laps({ session_key: sk, date_start: "<=" + tIso }), "laps"),
+      safeAjax(OpenF1API.location({ session_key: sk, date: ">=" + fromIso }), "location")
+    ).done(function (pos, ints, car, laps, locs) {
+      var rows = TowerData.build({
+        positions: pos || [],
+        intervals: ints || [],
+        stints: cache.stints || [],
+        pits: cache.pits || [],
+        laps: laps || [],
+        drivers: F1Data.normalizeDrivers(cache.driversRaw || []),
+        carData: car || []
+      });
 
-  $.when(
-    safeAjax(OpenF1API.position({ session_key: sk, date: "<=" + tIso }), "position"),
-    safeAjax(OpenF1API.intervals({ session_key: sk, date: "<=" + tIso }), "intervals"),
-    safeAjax(OpenF1API.carData({ session_key: sk, date: ">=" + fromIso }), "car_data"),
-    safeAjax(OpenF1API.laps({ session_key: sk, date_start: "<=" + tIso }), "laps")
-  ).done(function (pos, ints, car, laps) {
+      TowerUI.render(rows);
 
-    var rows = TowerData.build({
-      positions: pos || [],
-      intervals: ints || [],
-      stints: cache.stints || [],
-      pits: cache.pits || [],
-      laps: laps || [],
-      drivers: F1Data.normalizeDrivers(cache.driversRaw || []),
-      carData: car || []
+      // Update track map with current car positions
+      if (typeof TrackMap !== "undefined" && Array.isArray(locs) && locs.length) {
+        var driverColorMap = {};
+        F1Data.normalizeDrivers(cache.driversRaw || []).forEach(function (d) {
+          driverColorMap[d.number] = d.teamColour || null;
+        });
+        TrackMap.update(locs, driverColorMap);
+      }
+
+      // Update "last updated" timestamp
+      var now = new Date();
+      var ts = F1Utils.pad2(now.getHours()) + ":" + F1Utils.pad2(now.getMinutes()) + ":" + F1Utils.pad2(now.getSeconds());
+      $("#lastUpdated").text("Updated " + ts);
     });
+  }
 
-    TowerUI.render(rows);
-  });
-}
+  /* ===== Live indicator ===== */
+  function setLiveIndicator(active) {
+    if (active) {
+      $("#liveIndicator").addClass("is-live").text("LIVE");
+    } else {
+      $("#liveIndicator").removeClass("is-live").text("IDLE");
+    }
+  }
 
+  /* ===== Init ===== */
   function init() {
     HeaderModel.createHeader();
+
+    if (typeof TrackMap !== "undefined") {
+      TrackMap.init("trackMap");
+    }
 
     $("#refreshBtn").on("click", function () {
       loadMeetings(true);
@@ -147,6 +201,7 @@ var DashboardPageModel = (function () {
   function loadMeetings(force) {
     $("#meetingSelect").prop("disabled", true).empty();
     $("#sessionSelect").prop("disabled", true).empty();
+    $("#lbMsg").text("Loading meetings...").show();
 
     stopTower();
     resetTowerState();
@@ -154,19 +209,26 @@ var DashboardPageModel = (function () {
     OpenF1API.meetings({ year: state.year })
       .done(function (meetings) {
         meetings = Array.isArray(meetings) ? meetings : [];
-        if (!meetings.length) throw new Error("No meetings found");
+        if (!meetings.length) {
+          $("#lbMsg").text("No meetings found for " + state.year + ".").show();
+          return;
+        }
 
         meetings.sort(function (a, b) {
           return Date.parse(a.date_start) - Date.parse(b.date_start);
         });
 
-        $("#meetingSelect").append('<option value="">Select race</option>');
+        $("#meetingSelect").append('<option value="">— Select race —</option>');
 
         for (var i = 0; i < meetings.length; i++) {
           var m = meetings[i];
-          var label = (m.meeting_name || m.meeting_official_name || ("Meeting " + m.meeting_key));
+          var label = m.meeting_name || m.meeting_official_name || ("Meeting " + m.meeting_key);
+          var d = m.date_start ? new Date(m.date_start) : null;
+          if (d && !isNaN(d)) {
+            label += " · " + d.toLocaleDateString(undefined, { month: "short", day: "2-digit" });
+          }
           $("#meetingSelect").append(
-            '<option value="' + m.meeting_key + '">' + escapeHtml(label) + '</option>'
+            '<option value="' + m.meeting_key + '">' + F1Utils.escapeHtml(label) + '</option>'
           );
         }
 
@@ -178,13 +240,12 @@ var DashboardPageModel = (function () {
         state.meeting_key = picked;
         $("#meetingSelect").val(String(picked));
         $("#meetingSelect").prop("disabled", false);
+        $("#lbMsg").text("").hide();
 
         loadSessionsForMeeting(state.meeting_key, false);
       })
-      .fail(function (xhr) {
-        console.error("meetings failed", xhr);
-      })
-      .always(function () {
+      .fail(function () {
+        $("#lbMsg").text("Failed to load meetings. Check your connection.").show();
         $("#meetingSelect").prop("disabled", false);
       });
   }
@@ -208,29 +269,40 @@ var DashboardPageModel = (function () {
   ========================= */
   function loadSessionsForMeeting(meeting_key, forcePick) {
     $("#sessionSelect").prop("disabled", true).empty();
+    $("#lbMsg").text("Loading sessions...").show();
 
     if (!meeting_key) {
-      $("#sessionSelect").append('<option value="">Select session</option>');
+      $("#sessionSelect").append('<option value="">— Select session —</option>');
       $("#sessionSelect").prop("disabled", false);
+      $("#lbMsg").text("").hide();
       return;
     }
 
     OpenF1API.sessions({ meeting_key: meeting_key })
       .done(function (sessions) {
         sessions = Array.isArray(sessions) ? sessions : [];
-        if (!sessions.length) throw new Error("No sessions found");
+        if (!sessions.length) {
+          $("#lbMsg").text("No sessions found for this meeting.").show();
+          $("#sessionSelect").prop("disabled", false);
+          return;
+        }
 
         sessions.sort(function (a, b) {
           return Date.parse(a.date_start) - Date.parse(b.date_start);
         });
 
-        $("#sessionSelect").append('<option value="">Select session</option>');
+        $("#sessionSelect").append('<option value="">— Select session —</option>');
 
         for (var i = 0; i < sessions.length; i++) {
           var s = sessions[i];
           var label = s.session_name || ("Session " + s.session_key);
+          var d = s.date_start ? new Date(s.date_start) : null;
+          if (d && !isNaN(d)) {
+            label += " · " + d.toLocaleDateString(undefined, { weekday: "short" }) + " " +
+              d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+          }
           $("#sessionSelect").append(
-            '<option value="' + s.session_key + '">' + escapeHtml(label) + '</option>'
+            '<option value="' + s.session_key + '">' + F1Utils.escapeHtml(label) + '</option>'
           );
         }
 
@@ -243,6 +315,7 @@ var DashboardPageModel = (function () {
         state.session_key = picked;
         $("#sessionSelect").val(String(picked));
         $("#sessionSelect").prop("disabled", false);
+        $("#lbMsg").text("").hide();
 
         stopTower();
         resetTowerState();
@@ -250,10 +323,8 @@ var DashboardPageModel = (function () {
         loadWeatherForSession(state.session_key);
         startTower();
       })
-      .fail(function (xhr) {
-        console.error("sessions failed", xhr);
-      })
-      .always(function () {
+      .fail(function () {
+        $("#lbMsg").text("Failed to load sessions. Check your connection.").show();
         $("#sessionSelect").prop("disabled", false);
       });
   }
@@ -267,19 +338,8 @@ var DashboardPageModel = (function () {
         WeatherData.renderToDashboard(w);
       })
       .catch(function (err) {
-        console.error("weather failed", err);
+        console.warn("weather failed", err);
       });
-  }
-
-  function escapeHtml(str) {
-    str = String(str == null ? "" : str);
-    return str
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;")
-      .replace(/'/g, "&#039;");
   }
 
   return { init: init };
