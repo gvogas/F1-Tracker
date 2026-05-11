@@ -17,7 +17,7 @@ var ProfilePageModel = {
       : {};
 
     $("#name").val(prefs.name || "");
-    $("#hfToken").val(prefs.hfToken || "");
+    $("#aiProxyUrl").val(prefs.aiProxyUrl || "");
 
     F1UI.setPill("#favoriteDriver", prefs.favoriteDriver || "", ProfilePageModel.DRIVER_PLACEHOLDER);
     F1UI.setPill("#favoriteTeam",   prefs.favoriteTeam   || "", ProfilePageModel.TEAM_PLACEHOLDER);
@@ -78,7 +78,7 @@ var ProfilePageModel = {
       name:           $("#name").val().trim(),
       favoriteDriver: driverName,
       favoriteTeam:   teamName,
-      hfToken:        $("#hfToken").val().trim()
+      aiProxyUrl:     $("#aiProxyUrl").val().trim()
     };
 
     var d = ProfilePageModel.state.selectedDriver;
@@ -102,17 +102,17 @@ var ProfilePageModel = {
   },
 
   clear: function () {
-    // Preserve HF token across clears (it's an API key, not a preference)
-    var existingToken = $("#hfToken").val();
+    // Preserve AI proxy URL across clears (it's infra config, not a preference)
+    var existingProxy = $("#aiProxyUrl").val();
 
     if (typeof UserPrefsModel !== "undefined" && UserPrefsModel.clear) {
       UserPrefsModel.clear();
     }
 
-    // Re-save the token so it isn't wiped
-    if (existingToken) {
+    // Re-save the proxy URL so it isn't wiped
+    if (existingProxy) {
       var prefs = typeof UserPrefsModel !== "undefined" ? (UserPrefsModel.load() || {}) : {};
-      prefs.hfToken = existingToken;
+      prefs.aiProxyUrl = existingProxy;
       if (typeof UserPrefsModel !== "undefined") UserPrefsModel.save(prefs);
     }
 
