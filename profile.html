@@ -57,14 +57,14 @@
           <span class="muted" style="font-weight:400;font-size:11px;margin-left:6px">(optional — for AI features)</span>
         </label>
         <input class="inp" id="aiProxyUrl" type="url"
-          placeholder="https://f1-ai-proxy.yourname.workers.dev"
+          placeholder="http://localhost:3001"
           autocomplete="off" spellcheck="false" style="font-family:monospace;font-size:13px" />
         <p class="muted" style="font-size:12px;margin-top:6px;line-height:1.5">
-          Deploy the included <code style="font-size:11px;background:rgba(255,255,255,.07);padding:1px 5px;border-radius:4px">worker/</code>
-          folder as a free Cloudflare Worker, then paste the URL here.
-          Your HuggingFace token lives as a Worker secret server-side —
-          it <strong style="color:var(--text)">never touches your browser</strong>.
-          Only the proxy URL (not sensitive) is saved locally.
+          Run <code style="font-size:11px;background:rgba(255,255,255,.07);padding:1px 5px;border-radius:4px">npm install &amp;&amp; npm start</code>
+          then enter <code style="font-size:11px;background:rgba(255,255,255,.07);padding:1px 5px;border-radius:4px">http://localhost:3001</code> above.
+          Your HuggingFace token stays in <code style="font-size:11px;background:rgba(255,255,255,.07);padding:1px 5px;border-radius:4px">.env</code>
+          on your machine — it <strong style="color:var(--text)">never touches the browser</strong>.
+          When deployed, set the server's public URL here instead.
         </p>
       </div>
 
