@@ -17,6 +17,7 @@ var ProfilePageModel = {
       : {};
 
     $("#name").val(prefs.name || "");
+    $("#hfToken").val(prefs.hfToken || "");
 
     F1UI.setPill("#favoriteDriver", prefs.favoriteDriver || "", ProfilePageModel.DRIVER_PLACEHOLDER);
     F1UI.setPill("#favoriteTeam",   prefs.favoriteTeam   || "", ProfilePageModel.TEAM_PLACEHOLDER);
@@ -74,9 +75,10 @@ var ProfilePageModel = {
     var teamName   = F1UI.getPillValue("#favoriteTeam");
 
     var next = {
-      name:          $("#name").val().trim(),
+      name:           $("#name").val().trim(),
       favoriteDriver: driverName,
-      favoriteTeam:   teamName
+      favoriteTeam:   teamName,
+      hfToken:        $("#hfToken").val().trim()
     };
 
     var d = ProfilePageModel.state.selectedDriver;
@@ -100,8 +102,18 @@ var ProfilePageModel = {
   },
 
   clear: function () {
+    // Preserve HF token across clears (it's an API key, not a preference)
+    var existingToken = $("#hfToken").val();
+
     if (typeof UserPrefsModel !== "undefined" && UserPrefsModel.clear) {
       UserPrefsModel.clear();
+    }
+
+    // Re-save the token so it isn't wiped
+    if (existingToken) {
+      var prefs = typeof UserPrefsModel !== "undefined" ? (UserPrefsModel.load() || {}) : {};
+      prefs.hfToken = existingToken;
+      if (typeof UserPrefsModel !== "undefined") UserPrefsModel.save(prefs);
     }
 
     $("#name").val("");

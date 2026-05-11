@@ -50,6 +50,26 @@
         </div>
       </div>
 
+      <!-- HuggingFace AI token -->
+      <div style="margin-top:18px;padding-top:18px;border-top:1px solid rgba(255,255,255,.07)">
+        <label class="lbl" for="hfToken" style="margin-top:0">
+          <i class="fa-solid fa-robot"></i> HuggingFace API Token
+          <span class="muted" style="font-weight:400;font-size:11px;margin-left:6px">(optional — for AI features)</span>
+        </label>
+        <input class="inp" id="hfToken" type="password"
+          placeholder="hf_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          autocomplete="off" spellcheck="false" style="font-family:monospace;font-size:13px" />
+        <p class="muted" style="font-size:12px;margin-top:6px;line-height:1.5">
+          Get a free read-only token at
+          <a href="https://huggingface.co/settings/tokens" target="_blank" rel="noopener"
+             style="color:var(--accent)">huggingface.co/settings/tokens</a>.
+          Enables <strong style="color:var(--text)">Race Commentary AI</strong>,
+          <strong style="color:var(--text)">Performance Analysis</strong>, and
+          <strong style="color:var(--text)">Outcome Prediction</strong> on the Dashboard.
+          Stored locally in your browser only — never sent anywhere except HuggingFace.
+        </p>
+      </div>
+
       <!-- Actions -->
       <div class="row" style="margin-top:16px;">
         <button class="btn" id="saveBtn" type="button">
@@ -70,6 +90,7 @@
   <script src="core/ui/header.js"></script>
 
   <script src="core/api/openf1.api.js"></script>
+  <script src="core/api/huggingface.api.js"></script>
   <script src="core/f1/f1.data.js"></script>
   <script src="core/f1/f1.ui.js"></script>
 
