@@ -5,17 +5,31 @@
 var F1API = {
 
     _get: function (path, params) {
-        return $.ajax({
+        if (F1Utils.isBackingOff()) {
+            return $.Deferred().reject({ status: 429 }).promise();
+        }
+        var xhr = $.ajax({
             url:      '/api/' + path,
             method:   'GET',
             dataType: 'json',
             data:     params || {},
             timeout:  15000
         });
+        xhr.fail(function (jqXhr) {
+            var s = jqXhr && jqXhr.status;
+            if (s === 429 || s === 503) {
+                var ra = parseInt((jqXhr.getResponseHeader && jqXhr.getResponseHeader('Retry-After')) || '0', 10);
+                F1Utils.setBackoff(ra > 0 ? ra * 1000 : 8000);
+            }
+        });
+        return xhr;
     },
 
     _post: function (path, body) {
-        return $.ajax({
+        if (F1Utils.isBackingOff()) {
+            return $.Deferred().reject({ status: 429 }).promise();
+        }
+        var xhr = $.ajax({
             url:         '/api/' + path,
             method:      'POST',
             dataType:    'json',
@@ -23,6 +37,14 @@ var F1API = {
             data:        JSON.stringify(body || {}),
             timeout:     30000
         });
+        xhr.fail(function (jqXhr) {
+            var s = jqXhr && jqXhr.status;
+            if (s === 429 || s === 503) {
+                var ra = parseInt((jqXhr.getResponseHeader && jqXhr.getResponseHeader('Retry-After')) || '0', 10);
+                F1Utils.setBackoff(ra > 0 ? ra * 1000 : 8000);
+            }
+        });
+        return xhr;
     },
 
     /* ===== Data endpoints (GET) ===== */

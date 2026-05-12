@@ -27,12 +27,12 @@ use Twig\Loader\FilesystemLoader;
 
 require __DIR__ . '/vendor/autoload.php';
 
-// ─── Environment ─────────────────────────────────────────────────────────────
+// ─── Environment ────────────────────────────────────────────────────────────────
 
 $dotenv = Dotenv\Dotenv::createImmutable(__DIR__);
 $dotenv->safeLoad();
 
-// ─── DI Container ────────────────────────────────────────────────────────────
+// ─── DI Container ───────────────────────────────────────────────────────────────
 
 $container = new Container();
 
@@ -90,20 +90,26 @@ $container->set(AiController::class, function (Container $c) {
     );
 });
 
-// ─── App ─────────────────────────────────────────────────────────────────────
+// ─── App ──────────────────────────────────────────────────────────────────────
 
 AppFactory::setContainer($container);
 $app = AppFactory::create();
 
 $app->add(new SecurityHeadersMiddleware());
-$app->addErrorMiddleware(false, false, false)
-    ->setErrorHandler(HttpNotFoundException::class, function ($request, $exception) use ($app) {
-        $response = $app->getResponseFactory()->createResponse(404);
-        $response->getBody()->write('{"error":"Not found"}');
-        return $response->withHeader('Content-Type', 'application/json');
-    });
 
-// ─── Page routes ─────────────────────────────────────────────────────────────
+$errorMiddleware = $app->addErrorMiddleware(false, false, false);
+$errorMiddleware->setErrorHandler(HttpNotFoundException::class, function ($request, $exception) use ($app) {
+    $response = $app->getResponseFactory()->createResponse(404);
+    $response->getBody()->write('{"error":"Not found"}');
+    return $response->withHeader('Content-Type', 'application/json');
+});
+$errorMiddleware->setErrorHandler(RuntimeException::class, function ($request, $exception) use ($app) {
+    $response = $app->getResponseFactory()->createResponse(503);
+    $response->getBody()->write(json_encode(['error' => $exception->getMessage()]));
+    return $response->withHeader('Content-Type', 'application/json');
+}, true);
+
+// ─── Page routes ──────────────────────────────────────────────────────────────
 
 $app->get('/',            [PageController::class, 'home']);
 $app->get('/home',        [PageController::class, 'home']);
@@ -113,7 +119,7 @@ $app->get('/profile',     [PageController::class, 'profile']);
 $app->get('/races',       [PageController::class, 'races']);
 $app->get('/race',        [PageController::class, 'race']);
 
-// ─── API routes (/api/*) ─────────────────────────────────────────────────────
+// ─── API routes (/api/*) ──────────────────────────────────────────────────────────
 
 $app->group('/api', function (RouteCollectorProxy $group) {
     // Data endpoints (GET)

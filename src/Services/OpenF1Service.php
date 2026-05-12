@@ -37,10 +37,16 @@ class OpenF1Service
                 sleep($delays[$attempt]);
             }
 
-            [$status, $body] = $this->curlGet($url);
+            [$status, $body, $headers] = $this->curlGet($url);
 
             if ($status === 429) {
                 $attempt++;
+                if ($attempt < count($delays)) {
+                    $retryAfter = isset($headers['retry-after']) ? (int) $headers['retry-after'] : 0;
+                    if ($retryAfter > 0) {
+                        $delays[$attempt] = min($retryAfter, 30);
+                    }
+                }
                 continue;
             }
 
@@ -59,9 +65,10 @@ class OpenF1Service
         throw new RuntimeException("OpenF1 rate-limited after retries for {$endpoint}");
     }
 
-    /** @return array{int, string} [httpStatus, body] */
+    /** @return array{int, string, array<string, string>} [httpStatus, body, responseHeaders] */
     private function curlGet(string $url): array
     {
+        $responseHeaders = [];
         $ch = curl_init($url);
         curl_setopt_array($ch, [
             CURLOPT_RETURNTRANSFER => true,
@@ -69,6 +76,13 @@ class OpenF1Service
             CURLOPT_FOLLOWLOCATION => true,
             CURLOPT_HTTPHEADER     => ['Accept: application/json'],
             CURLOPT_USERAGENT      => 'F1-Tracker/1.0',
+            CURLOPT_HEADERFUNCTION => function ($handle, $header) use (&$responseHeaders): int {
+                if (str_contains($header, ':')) {
+                    [$name, $value] = explode(':', $header, 2);
+                    $responseHeaders[strtolower(trim($name))] = trim($value);
+                }
+                return strlen($header);
+            },
         ]);
 
         $body   = (string) curl_exec($ch);
@@ -80,6 +94,6 @@ class OpenF1Service
             throw new RuntimeException("cURL error: {$error}");
         }
 
-        return [$status, $body];
+        return [$status, $body, $responseHeaders];
     }
 }

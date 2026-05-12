@@ -89,8 +89,47 @@ class HuggingFaceService
     /** @return array<mixed> */
     private function post(string $model, string $jsonPayload): array
     {
-        $url = self::BASE . $model;
+        $url      = self::BASE . $model;
+        $maxTries = 3;
 
+        for ($attempt = 0; $attempt < $maxTries; $attempt++) {
+            [$status, $body, $headers] = $this->curlPost($url, $jsonPayload);
+
+            if ($status === 429) {
+                if ($attempt + 1 >= $maxTries) break;
+                $wait = isset($headers['retry-after']) ? (int) $headers['retry-after'] : 30;
+                sleep(min($wait, 60));
+                continue;
+            }
+
+            if ($status === 503) {
+                if ($attempt + 1 >= $maxTries) break;
+                // HuggingFace includes estimated_time in the body for model-loading 503s
+                $info = json_decode($body, true);
+                $wait = isset($info['estimated_time']) ? (int) ceil((float) $info['estimated_time']) : 20;
+                sleep(min($wait, 60));
+                continue;
+            }
+
+            if ($status >= 400) {
+                throw new RuntimeException("HuggingFace returned HTTP {$status}: {$body}");
+            }
+
+            $decoded = json_decode($body, true);
+            if (!is_array($decoded)) {
+                throw new RuntimeException("HuggingFace returned non-JSON: {$body}");
+            }
+
+            return $decoded;
+        }
+
+        throw new RuntimeException("HuggingFace unavailable for {$model} after {$maxTries} attempts");
+    }
+
+    /** @return array{int, string, array<string, string>} [status, body, responseHeaders] */
+    private function curlPost(string $url, string $jsonPayload): array
+    {
+        $responseHeaders = [];
         $ch = curl_init($url);
         curl_setopt_array($ch, [
             CURLOPT_RETURNTRANSFER => true,
@@ -102,6 +141,13 @@ class HuggingFaceService
                 'Content-Type: application/json',
                 'Accept: application/json',
             ],
+            CURLOPT_HEADERFUNCTION => function ($handle, $header) use (&$responseHeaders): int {
+                if (str_contains($header, ':')) {
+                    [$name, $value] = explode(':', $header, 2);
+                    $responseHeaders[strtolower(trim($name))] = trim($value);
+                }
+                return strlen($header);
+            },
         ]);
 
         $body   = (string) curl_exec($ch);
@@ -113,20 +159,6 @@ class HuggingFaceService
             throw new RuntimeException("cURL error calling HuggingFace: {$error}");
         }
 
-        if ($status === 503) {
-            // Model loading — common on free tier, surface a useful error
-            throw new RuntimeException("HuggingFace model is loading, try again in a moment.");
-        }
-
-        if ($status >= 400) {
-            throw new RuntimeException("HuggingFace returned HTTP {$status}: {$body}");
-        }
-
-        $decoded = json_decode($body, true);
-        if (!is_array($decoded)) {
-            throw new RuntimeException("HuggingFace returned non-JSON: {$body}");
-        }
-
-        return $decoded;
+        return [$status, $body, $responseHeaders];
     }
 }
