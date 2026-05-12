@@ -59,11 +59,6 @@ var RacesPage = (function () {
           return;
         }
 
-        // PHP already sorts asc; sort client-side as safety net
-        meetings.sort(function (a, b) {
-          return Date.parse(a.dateStart) - Date.parse(b.dateStart);
-        });
-
         var now  = Date.now();
         var html = "";
         for (var i = 0; i < meetings.length; i++) {

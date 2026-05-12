@@ -158,6 +158,7 @@ var DashboardPageModel = (function () {
   function initAiTabs() {
     $(document).on("click", ".ai-tab", function () {
       var tabId = $(this).attr("data-tab");
+      if (!tabId || !/^[\w-]+$/.test(tabId)) return;
       $(".ai-tab").removeClass("is-active");
       $(this).addClass("is-active");
       $(".ai-content").hide();
@@ -178,7 +179,7 @@ var DashboardPageModel = (function () {
   function loadWeather(sessionKey) {
     WeatherData.getLatestForSession(sessionKey)
       .then(function (w) { WeatherData.renderToDashboard(w); })
-      .catch(function ()  { /* silent */ });
+      .catch(function ()  { console.warn("Weather load failed"); });
   }
 
   /* ===== Init ===== */

@@ -64,8 +64,9 @@ var LeaderboardPageModel = (function () {
           $("#meetingSelect").append($("<option>").val(String(m.key)).text(meetingLabel(m)));
         }
 
-        var pick = (prev && $("#meetingSelect option[value='" + prev + "']").length)
-          ? prev
+        var prevStr = prev ? String(prev) : null;
+        var pick = (prevStr && $("#meetingSelect option").filter(function () { return this.value === prevStr; }).length)
+          ? prevStr
           : String(meetings[meetings.length - 1].key);
 
         state.meeting_key = pick;
@@ -114,8 +115,9 @@ var LeaderboardPageModel = (function () {
           $("#sessionSelect").append($("<option>").val(String(s.key)).text(sessionLabel(s)));
         }
 
-        var pick = (prev && $("#sessionSelect option[value='" + prev + "']").length)
-          ? prev
+        var prevStr = prev ? String(prev) : null;
+        var pick = (prevStr && $("#sessionSelect option").filter(function () { return this.value === prevStr; }).length)
+          ? prevStr
           : String(F1Data.pickBestSession(sessions).key);
 
         state.session_key = pick;

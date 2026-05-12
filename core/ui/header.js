@@ -13,7 +13,7 @@ var HeaderModel = {
     // brand
     var brand = $("<a>")
       .addClass("site-brand")
-      .attr({ href: "home.html", "aria-label": "F1 Tracker Home" });
+      .attr({ href: "/", "aria-label": "F1 Tracker Home" });
 
     var logo = $("<div>").addClass("site-brand__logo").attr("id", "headerLogo");
 
@@ -39,11 +39,11 @@ var HeaderModel = {
     var nav = $("<nav>").addClass("site-nav").attr("aria-label", "Primary");
 
     var links = [
-      { href: "home.html",        label: "Home",        key: "home",        accesskey: "1" },
-      { href: "leaderboard.html", label: "Leaderboard", key: "leaderboard", accesskey: "2" },
-      { href: "dashboard.html",   label: "Dashboard",   key: "dash",        accesskey: "3" },
-      { href: "races.html",       label: "Races",       key: "races",       accesskey: "4" },
-      { href: "profile.html",     label: "Profile",     key: "profile",     accesskey: "5" }
+      { href: "/",            label: "Home",        key: "home",        accesskey: "1" },
+      { href: "/leaderboard", label: "Leaderboard", key: "leaderboard", accesskey: "2" },
+      { href: "/dashboard",   label: "Dashboard",   key: "dash",        accesskey: "3" },
+      { href: "/races",       label: "Races",       key: "races",       accesskey: "4" },
+      { href: "/profile",     label: "Profile",     key: "profile",     accesskey: "5" }
     ];
 
     for (var i = 0; i < links.length; i++) {
@@ -65,7 +65,7 @@ var HeaderModel = {
 
     var editFavBtn = $("<a>")
       .addClass("site-actions__btn")
-      .attr({ href: "profile.html", accesskey: "6", title: "Edit Favorites (Alt+6)" })
+      .attr({ href: "/profile", accesskey: "6", title: "Edit Favorites (Alt+6)" })
       .text("Edit Favorites");
 
     var soundBtn = $("<button>")
@@ -120,6 +120,7 @@ var HeaderModel = {
     $("#headerFavText").text(favText);
 
     var headshot = (prefs.favoriteDriverHeadshot || "").trim();
+    if (headshot && !/^https?:\/\//i.test(headshot)) headshot = "";
     var teamColor = (prefs.favoriteTeamColour || "").trim();
     var $logo = $("#headerLogo");
 
