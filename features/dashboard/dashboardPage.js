@@ -105,6 +105,10 @@ var DashboardPageModel = (function () {
           $("#aiCommentaryText").text(res.commentary);
           $("#aiCommentaryCard").show();
         }
+      })
+      .fail(function () {
+        $("#aiCommentaryText").text("Commentary unavailable.");
+        $("#aiCommentaryCard").show();
       });
   }
 
@@ -115,6 +119,10 @@ var DashboardPageModel = (function () {
           $("#aiRCText").text(res.explanation);
           $("#aiRCCard").show();
         }
+      })
+      .fail(function () {
+        $("#aiRCText").text("Stewards summary unavailable.");
+        $("#aiRCCard").show();
       });
   }
 
@@ -125,6 +133,10 @@ var DashboardPageModel = (function () {
           $("#aiPredText").text(res.prediction);
           $("#aiPredCard").show();
         }
+      })
+      .fail(function () {
+        $("#aiPredText").text("Prediction unavailable.");
+        $("#aiPredCard").show();
       });
   }
 
@@ -135,6 +147,10 @@ var DashboardPageModel = (function () {
           $("#aiStrategyText").text(res.analysis);
           $("#aiStrategyCard").show();
         }
+      })
+      .fail(function () {
+        $("#aiStrategyText").text("Strategy analysis unavailable.");
+        $("#aiStrategyCard").show();
       });
   }
 
