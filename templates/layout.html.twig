@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{% block title %}F1 Tracker{% endblock %}</title>
+  <link rel="stylesheet" href="/css/style.css" />
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
+    crossorigin="anonymous"
+    referrerpolicy="no-referrer"
+  />
+  {% block head %}{% endblock %}
+</head>
+<body>
+
+  <div id="header-container"></div>
+
+  {% block content %}{% endblock %}
+
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+
+  <script src="/core/lib/cookies.js"></script>
+  <script src="/core/lib/userPrefs.js"></script>
+  <script src="/core/ui/header.js"></script>
+  <script src="/core/ui/sound.js"></script>
+  <script src="/core/api/api.js"></script>
+
+  {% block scripts %}{% endblock %}
+
+</body>
+</html>

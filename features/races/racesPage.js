@@ -2,6 +2,7 @@ var RacesPage = (function () {
   var year = new Date().getFullYear();
 
   function init() {
+    if (typeof HeaderModel !== "undefined") HeaderModel.createHeader();
     buildYearSelect();
     $("#yearSelect").on("change", function () {
       year = Number($(this).val()) || year;
@@ -11,7 +12,7 @@ var RacesPage = (function () {
   }
 
   function buildYearSelect() {
-    var y = new Date().getFullYear();
+    var y   = new Date().getFullYear();
     var $sel = $("#yearSelect").empty();
     for (var i = y; i >= y - 5; i--) {
       $sel.append('<option value="' + i + '">' + i + '</option>');
@@ -20,38 +21,41 @@ var RacesPage = (function () {
   }
 
   function loadMeetings() {
-    $("#raceGrid").html('<div class="muted">Loading…</div>');
+    $("#racesGrid").html('<div class="muted">Loading…</div>');
 
-    OpenF1API.meetings({ year: year })
+    F1API.meetings({ year: year })
       .done(function (meetings) {
         meetings = Array.isArray(meetings) ? meetings : [];
-        meetings.sort(function (a, b) { return Date.parse(a.date_start) - Date.parse(b.date_start); });
+        // PHP already sorts asc; no client re-sort needed
+
+        if (!meetings.length) {
+          $("#racesGrid").html('<div class="muted">No races found for ' + year + '.</div>');
+          return;
+        }
 
         var html = "";
         for (var i = 0; i < meetings.length; i++) {
-          var m = meetings[i];
-          var name = m.meeting_name || "Race";
-          var loc = (m.location || "") + (m.country_name ? (" • " + m.country_name) : "");
-          var date = m.date_start ? new Date(m.date_start).toLocaleDateString() : "";
+          var m    = meetings[i]; // camelCase from PHP: m.key, m.name, m.dateStart, m.countryName
+          var name = m.name || "Race";
+          var loc  = m.location || "";
+          if (m.countryName) loc += (loc ? " • " : "") + m.countryName;
+          var date = m.dateStart ? new Date(m.dateStart).toLocaleDateString() : "";
 
-          html += ''
-            + '<button class="race-card" data-key="' + m.meeting_key + '">'
-            + '  <div class="race-title">' + esc(name) + '</div>'
-            + '  <div class="race-sub">' + esc(loc) + '</div>'
-            + '  <div class="race-date">' + esc(date) + '</div>'
+          html += '<button class="race-card card" data-key="' + m.key + '">'
+            + '<div class="race-title">' + esc(name) + '</div>'
+            + '<div class="race-sub">'   + esc(loc)  + '</div>'
+            + '<div class="race-date">'  + esc(date) + '</div>'
             + '</button>';
         }
 
-        $("#raceGrid").html(html);
+        $("#racesGrid").html(html);
 
         $(".race-card").on("click", function () {
-          var mk = $(this).data("key");
-          window.location.href = "race.html?meeting_key=" + encodeURIComponent(mk);
+          window.location.href = "/race?meeting_key=" + encodeURIComponent($(this).data("key"));
         });
       })
-      .fail(function (xhr) {
-        $("#raceGrid").html('<div class="muted">Failed to load meetings.</div>');
-        console.error(xhr);
+      .fail(function () {
+        $("#racesGrid").html('<div class="muted">Failed to load meetings.</div>');
       });
   }
 

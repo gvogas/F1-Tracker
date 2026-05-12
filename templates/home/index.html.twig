@@ -1,0 +1,76 @@
+{% extends 'layout.html.twig' %}
+
+{% block title %}F1 Tracker{% endblock %}
+
+{% block content %}
+<main>
+
+  <!-- HERO -->
+  <section class="hero card">
+    <div class="hero-top">
+      <div class="hero-badge">OpenF1 · Jolpica</div>
+      <div class="hero-chip" id="favChip">Set your favorites in Profile</div>
+    </div>
+
+    <h1>F1 Tracker</h1>
+    <p class="muted hero-sub">
+      Track Formula 1 schedules, leaderboards, and live race data.
+    </p>
+
+    <div class="cta">
+      <a class="btn" href="/leaderboard">Leaderboard</a>
+      <a class="btn ghost" href="/dashboard">Dashboard</a>
+      <a class="btn ghost" href="/profile">Profile</a>
+    </div>
+
+    <div class="hero-stats">
+      <div class="stat">
+        <div class="stat-num" id="statSeason">—</div>
+        <div class="stat-label">Season</div>
+      </div>
+      <div class="stat">
+        <div class="stat-num">0</div>
+        <div class="stat-label">API Keys</div>
+      </div>
+      <div class="stat">
+        <div class="stat-num">PHP</div>
+        <div class="stat-label">Powered</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FEATURES -->
+  <section class="grid">
+    <a class="card card-link" href="/profile">
+      <h2>Profile</h2>
+      <p class="muted">Save your favorite driver and team.</p>
+    </a>
+
+    <a class="card card-link" href="/leaderboard">
+      <h2>Leaderboard</h2>
+      <p class="muted">Browse races, sessions, and standings.</p>
+    </a>
+
+    <a class="card card-link" href="/dashboard">
+      <h2>Live + Stats</h2>
+      <p class="muted">Live timing tower, weather, and AI insights.</p>
+    </a>
+  </section>
+
+  <!-- ABOUT -->
+  <section class="card about">
+    <h2>About</h2>
+    <ul class="bullets muted">
+      <li>PHP backend with Slim 4 + Twig (server-side rendering)</li>
+      <li>All data proxied and cached server-side via OpenF1</li>
+      <li>AI commentary, strategy analysis, and race prediction via HuggingFace</li>
+      <li>User preferences stored in cookies</li>
+    </ul>
+  </section>
+
+</main>
+{% endblock %}
+
+{% block scripts %}
+<script src="/features/home/home.page.js"></script>
+{% endblock %}

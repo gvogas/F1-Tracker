@@ -1,0 +1,97 @@
+{% extends 'layout.html.twig' %}
+
+{% block title %}Dashboard · F1 Tracker{% endblock %}
+
+{% block content %}
+
+<div class="lb-controls">
+  <div class="select-wrap">
+    <select class="select" id="meetingSelect"></select>
+  </div>
+  <div class="select-wrap">
+    <select class="select" id="sessionSelect"></select>
+  </div>
+  <button class="btn ghost" id="refreshBtn" type="button">Refresh</button>
+</div>
+
+<!-- Weather bar -->
+<div class="wxbar" id="weatherBar">
+  <div class="wxchip" id="wxTrc">
+    <div class="wxvalue">--</div>
+    <div class="wxlabel">TRC</div>
+  </div>
+  <div class="wxchip" id="wxAir">
+    <div class="wxvalue">--</div>
+    <div class="wxlabel">AIR</div>
+  </div>
+  <div class="wxchip" id="wxHum">
+    <div class="wxvalue">--</div>
+    <div class="wxlabel">HUM</div>
+  </div>
+  <div class="wxchip wxicon" id="wxRain">
+    <i class="fa-solid fa-cloud"></i>
+    <div class="wxlabel">RAIN</div>
+  </div>
+  <div class="wxchip wxicon" id="wxWind">
+    <div class="wxvalue">--</div>
+    <div class="wxlabel">-- m/s</div>
+  </div>
+</div>
+
+<main>
+
+  <!-- Timing tower -->
+  <section class="tower" id="tower"></section>
+
+  <!-- AI cards row -->
+  <div class="grid" id="aiCards" style="margin-top:1rem;">
+
+    <!-- Goal 6: Live Commentary -->
+    <div class="card" id="aiCommentaryCard" style="display:none;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+        <h3 style="margin:0;">Live Commentary</h3>
+        <span class="hero-badge" style="font-size:0.7rem;">AI</span>
+      </div>
+      <p class="muted" id="aiCommentaryText" style="margin:0;line-height:1.5;">—</p>
+    </div>
+
+    <!-- Goal 8: Stewards' Summary -->
+    <div class="card" id="aiRCCard" style="display:none;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+        <h3 style="margin:0;">Stewards' Summary</h3>
+        <span class="hero-badge" style="font-size:0.7rem;">AI</span>
+      </div>
+      <p class="muted" id="aiRCText" style="margin:0;line-height:1.5;">—</p>
+    </div>
+
+    <!-- Goal 9: Race Prediction -->
+    <div class="card" id="aiPredCard" style="display:none;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+        <h3 style="margin:0;">Race Prediction</h3>
+        <span class="hero-badge" style="font-size:0.7rem;">AI · flan-t5</span>
+      </div>
+      <p class="muted" id="aiPredText" style="margin:0;line-height:1.5;">—</p>
+    </div>
+
+  </div>
+
+  <!-- Goal 7: Strategy Analysis (collapsible) -->
+  <details class="card" id="aiStrategyCard" style="margin-top:1rem;display:none;">
+    <summary style="cursor:pointer;display:flex;align-items:center;gap:8px;">
+      <strong>Strategy Analysis</strong>
+      <span class="hero-badge" style="font-size:0.7rem;">AI</span>
+    </summary>
+    <p class="muted" id="aiStrategyText" style="margin:8px 0 0;line-height:1.5;">—</p>
+  </details>
+
+</main>
+{% endblock %}
+
+{% block scripts %}
+<script src="/core/f1/f1.data.js"></script>
+<script src="/core/f1/weatherData.js"></script>
+<script src="/core/f1/towerData.js"></script>
+<script src="/core/f1/towerUI.js"></script>
+<script src="/core/f1/f1.ui.js"></script>
+<script src="/features/dashboard/dashboardPage.js"></script>
+{% endblock %}

@@ -1,0 +1,61 @@
+{% extends 'layout.html.twig' %}
+
+{% block title %}Race · F1 Tracker{% endblock %}
+
+{% block content %}
+
+<div class="lb-controls">
+  <div class="select-wrap">
+    <select class="select" id="sessionSelect"></select>
+  </div>
+  <button class="btn" id="playBtn" type="button">▶ Play</button>
+  <button class="btn ghost" id="stopBtn" type="button" style="display:none;">■ Stop</button>
+  <div id="stopwatch" class="muted" style="padding:0 8px;font-variant-numeric:tabular-nums;">00:00:00</div>
+</div>
+
+<!-- Weather bar -->
+<div class="wxbar" id="weatherBar">
+  <div class="wxchip" id="wxTrc">
+    <div class="wxvalue">--</div>
+    <div class="wxlabel">TRC</div>
+  </div>
+  <div class="wxchip" id="wxAir">
+    <div class="wxvalue">--</div>
+    <div class="wxlabel">AIR</div>
+  </div>
+  <div class="wxchip" id="wxHum">
+    <div class="wxvalue">--</div>
+    <div class="wxlabel">HUM</div>
+  </div>
+  <div class="wxchip wxicon" id="wxRain">
+    <i class="fa-solid fa-cloud"></i>
+    <div class="wxlabel">RAIN</div>
+  </div>
+  <div class="wxchip wxicon" id="wxWind">
+    <div class="wxvalue">--</div>
+    <div class="wxlabel">-- m/s</div>
+  </div>
+</div>
+
+<main>
+  <section class="tower" id="tower"></section>
+
+  <!-- Strategy Analysis for replay -->
+  <details class="card" id="aiStrategyCard" style="margin-top:1rem;display:none;">
+    <summary style="cursor:pointer;display:flex;align-items:center;gap:8px;">
+      <strong>Strategy Analysis</strong>
+      <span class="hero-badge" style="font-size:0.7rem;">AI</span>
+    </summary>
+    <p class="muted" id="aiStrategyText" style="margin:8px 0 0;line-height:1.5;">—</p>
+  </details>
+</main>
+{% endblock %}
+
+{% block scripts %}
+<script src="/core/f1/f1.data.js"></script>
+<script src="/core/f1/weatherData.js"></script>
+<script src="/core/f1/towerData.js"></script>
+<script src="/core/f1/towerUI.js"></script>
+<script src="/core/f1/f1.ui.js"></script>
+<script src="/features/race/racePage.js"></script>
+{% endblock %}

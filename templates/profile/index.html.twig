@@ -1,0 +1,33 @@
+{% extends 'layout.html.twig' %}
+
+{% block title %}Profile · F1 Tracker{% endblock %}
+
+{% block content %}
+<main>
+  <section class="card">
+    <h1 style="margin:0 0 4px;">Profile</h1>
+    <p class="muted" style="margin:0 0 20px;">Pick your favourite driver and team.</p>
+
+    <div class="lb-controls" style="margin-bottom:16px;">
+      <input class="select" id="searchInput" type="text" placeholder="Search driver…" />
+      <button class="btn ghost" id="clearBtn" type="button">Clear Prefs</button>
+      <button class="btn" id="saveBtn" type="button">Save</button>
+    </div>
+
+    <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;">
+      <div class="hero-chip" id="favoriteDriver">Click a driver to select</div>
+      <div class="hero-chip" id="favoriteTeam">Auto-filled from driver</div>
+    </div>
+
+    <div id="driverGrid"></div>
+
+    <div class="muted" id="profileMsg" style="margin-top:12px;"></div>
+  </section>
+</main>
+{% endblock %}
+
+{% block scripts %}
+<script src="/core/f1/f1.data.js"></script>
+<script src="/core/f1/f1.ui.js"></script>
+<script src="/features/profile/profile.page.js"></script>
+{% endblock %}

@@ -1,0 +1,26 @@
+{% extends 'layout.html.twig' %}
+
+{% block title %}Races · F1 Tracker{% endblock %}
+
+{% block content %}
+<main>
+  <section class="card">
+    <div class="lb-top" style="margin-bottom:16px;">
+      <h1 style="margin:0;">Races</h1>
+      <div class="lb-controls">
+        <div class="select-wrap">
+          <select class="select" id="yearSelect"></select>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid" id="racesGrid"></div>
+
+    <div class="muted" id="racesMsg" style="margin-top:12px;"></div>
+  </section>
+</main>
+{% endblock %}
+
+{% block scripts %}
+<script src="/features/races/racesPage.js"></script>
+{% endblock %}
