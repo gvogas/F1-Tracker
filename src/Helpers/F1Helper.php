@@ -36,14 +36,6 @@ class F1Helper
         return $drivers;
     }
 
-    /** @return string[] Unique sorted team names */
-    public static function teamsFromDrivers(array $drivers): array
-    {
-        $teams = array_unique(array_map(fn(DriverModel $d) => $d->teamName, $drivers));
-        sort($teams);
-        return array_values($teams);
-    }
-
     // ─── Meetings ─────────────────────────────────────────────────────────────
 
     /**
@@ -59,21 +51,6 @@ class F1Helper
         );
 
         return $meetings;
-    }
-
-    /** Return the latest meeting that has already started. */
-    public static function latestStartedMeeting(array $meetings): ?MeetingModel
-    {
-        $now     = time();
-        $started = array_filter($meetings, fn(MeetingModel $m) =>
-            $m->dateStart !== '' && strtotime($m->dateStart) <= $now
-        );
-
-        if (!$started) {
-            return null;
-        }
-
-        return end($started) ?: null;
     }
 
     // ─── Sessions ─────────────────────────────────────────────────────────────

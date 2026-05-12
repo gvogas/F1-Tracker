@@ -80,9 +80,9 @@ var RacesPage = (function () {
 
           html += '<button class="race-card' + (isPast ? "" : " race-card--future") + '" data-key="' + m.key + '" type="button">'
             + '<div class="race-card-flag">' + flag + '</div>'
-            + '<div class="race-title">' + esc(name) + '</div>'
-            + '<div class="race-sub">' + esc(loc) + (country && loc !== country ? " · " + esc(country) : "") + '</div>'
-            + '<div class="race-date"><i class="fa-regular fa-calendar" style="opacity:.5"></i> ' + esc(dateStr) + '</div>'
+            + '<div class="race-title">' + F1Utils.escapeHtml(name) + '</div>'
+            + '<div class="race-sub">' + F1Utils.escapeHtml(loc) + (country && loc !== country ? " · " + F1Utils.escapeHtml(country) : "") + '</div>'
+            + '<div class="race-date"><i class="fa-regular fa-calendar" style="opacity:.5"></i> ' + F1Utils.escapeHtml(dateStr) + '</div>'
             + '</button>';
         }
 
@@ -97,13 +97,6 @@ var RacesPage = (function () {
           '<div class="muted"><i class="fa-solid fa-triangle-exclamation" style="font-size:28px;opacity:.4;margin-bottom:10px;display:block"></i>Failed to load races. Check your connection.</div>'
         );
       });
-  }
-
-  function esc(s) {
-    return String(s == null ? "" : s)
-      .replace(/&/g, "&amp;").replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;").replace(/"/g, "&quot;")
-      .replace(/'/g, "&#039;");
   }
 
   return { init: init };
