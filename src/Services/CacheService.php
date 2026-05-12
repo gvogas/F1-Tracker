@@ -11,6 +11,9 @@ class CacheService
     public function __construct(string $cacheDir)
     {
         $this->dir = rtrim($cacheDir, '/');
+        if (!is_dir($this->dir)) {
+            mkdir($this->dir, 0755, true);
+        }
     }
 
     public function get(string $key): ?array

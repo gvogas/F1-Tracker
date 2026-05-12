@@ -33,8 +33,8 @@ class WeatherController
         if ($data === null) {
             $raw     = $this->openF1->get('weather', ['session_key' => $sessionKey]);
             $weather = F1Helper::latestWeather($raw);
-            $data    = $weather ? $weather->toArray() : (object) [];
-            $this->cache->set($cKey, is_array($data) ? $data : [], 30);
+            $data    = $weather ? $weather->toArray() : [];
+            $this->cache->set($cKey, $data, 30);
         }
 
         $response->getBody()->write(json_encode($data, JSON_UNESCAPED_UNICODE));
