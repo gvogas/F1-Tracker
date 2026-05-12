@@ -7,7 +7,7 @@ var LeaderboardPageModel = (function () {
   };
 
   function init() {
-    HeaderModel.createHeader();
+    if (typeof HeaderModel !== "undefined") HeaderModel.createHeader();
 
     $("#refreshBtn").on("click", function () { loadMeetings(true); });
 
@@ -25,17 +25,34 @@ var LeaderboardPageModel = (function () {
     loadMeetings(false);
   }
 
+  /* ===== UI helpers ===== */
+  function showMsg(msg) {
+    if (msg) {
+      $("#lbMsg").text(msg).show();
+    } else {
+      $("#lbMsg").text("").hide();
+    }
+  }
+
+  function showSkeleton() {
+    var html = "";
+    for (var i = 0; i < 5; i++) {
+      html += '<tr><td colspan="5"><div class="skel" style="height:36px;border-radius:8px;margin:4px 0"></div></td></tr>';
+    }
+    $("#driversBody").html(html);
+  }
+
   /* ===== Meetings ===== */
   function loadMeetings(force) {
-    $("#lbMsg").text("Loading meetings…");
-    $("#driversBody").empty();
+    showMsg("Loading meetings…");
+    showSkeleton();
     $("#lbTitle").text("Leaderboard");
 
     F1API.meetings({ year: state.year })
       .done(function (meetings) {
         meetings = Array.isArray(meetings) ? meetings : [];
         if (!meetings.length) {
-          $("#lbMsg").text("No meetings found for " + state.year + ".");
+          showMsg("No meetings found for " + state.year + ".");
           return;
         }
 
@@ -43,9 +60,8 @@ var LeaderboardPageModel = (function () {
         $("#meetingSelect").empty();
 
         for (var i = 0; i < meetings.length; i++) {
-          var m = meetings[i]; // PHP returns camelCase: m.key, m.name, m.dateStart
-          var label = meetingLabel(m);
-          $("#meetingSelect").append($("<option>").val(String(m.key)).text(label));
+          var m = meetings[i]; // PHP camelCase: m.key, m.name, m.dateStart
+          $("#meetingSelect").append($("<option>").val(String(m.key)).text(meetingLabel(m)));
         }
 
         var pick = (prev && $("#meetingSelect option[value='" + prev + "']").length)
@@ -54,46 +70,47 @@ var LeaderboardPageModel = (function () {
 
         state.meeting_key = pick;
         $("#meetingSelect").val(pick);
+        showMsg("");
+
         loadSessionsForMeeting(pick, force);
       })
-      .fail(function () { $("#lbMsg").text("Failed to load meetings."); });
+      .fail(function () { showMsg("Failed to load meetings. Check your connection."); });
   }
 
   function meetingLabel(m) {
     var name = m.name || m.officialName || "Grand Prix";
     var d    = m.dateStart ? new Date(m.dateStart) : null;
     if (!d || isNaN(d.getTime())) return name;
-    var mon = d.toLocaleDateString(undefined, { month: "short" });
-    var day = d.toLocaleDateString(undefined, { day:   "2-digit" });
-    return name + " · " + mon + " " + day;
+    return name + " · " + d.toLocaleDateString(undefined, { month: "short", day: "2-digit" });
   }
 
   /* ===== Sessions ===== */
   function loadSessionsForMeeting(meetingKey, force) {
     if (!meetingKey) return;
 
-    $("#lbMsg").text("Loading sessions…");
-    $("#driversBody").empty();
+    showMsg("Loading sessions…");
+    showSkeleton();
     $("#sessionSelect").empty();
 
     F1API.sessions({ meeting_key: meetingKey })
       .done(function (sessions) {
         sessions = Array.isArray(sessions) ? sessions : [];
         if (!sessions.length) {
-          $("#lbMsg").text("No sessions found for this meeting.");
+          showMsg("No sessions found for this meeting.");
           return;
         }
 
         // Update title from last session
         var last = sessions[sessions.length - 1];
         var titleBits = [];
-        if (last.location)    titleBits.push(last.location);
-        if (last.year)        titleBits.push(String(last.year));
+        if (last.location) titleBits.push(last.location);
+        if (last.year)     titleBits.push(String(last.year));
         $("#lbTitle").text(titleBits.length ? "Leaderboard · " + titleBits.join(" ") : "Leaderboard");
 
         var prev = (!force && state.session_key) ? state.session_key : null;
+
         for (var i = 0; i < sessions.length; i++) {
-          var s = sessions[i]; // s.key, s.name, s.dateStart
+          var s = sessions[i]; // PHP camelCase: s.key, s.name, s.dateStart
           $("#sessionSelect").append($("<option>").val(String(s.key)).text(sessionLabel(s)));
         }
 
@@ -103,33 +120,32 @@ var LeaderboardPageModel = (function () {
 
         state.session_key = pick;
         $("#sessionSelect").val(pick);
-        $("#lbMsg").text("");
+        showMsg("");
         loadResults(pick);
       })
-      .fail(function () { $("#lbMsg").text("Failed to load sessions."); });
+      .fail(function () { showMsg("Failed to load sessions. Check your connection."); });
   }
 
   function sessionLabel(s) {
     var name = s.name || "Session";
     var d    = s.dateStart ? new Date(s.dateStart) : null;
     if (!d || isNaN(d.getTime())) return name;
-    var day  = d.toLocaleDateString(undefined, { weekday: "short" });
-    var time = d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
-    return name + " · " + day + " " + time;
+    return name + " · " + d.toLocaleDateString(undefined, { weekday: "short" }) + " " +
+      d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
   }
 
-  /* ===== Results (joined by PHP) ===== */
+  /* ===== Results ===== */
   function loadResults(sessionKey) {
-    $("#lbMsg").text("Loading results…");
-    $("#driversBody").empty();
+    showMsg("Loading results…");
+    showSkeleton();
 
     F1API.results({ session_key: sessionKey })
       .done(function (results) {
         results = Array.isArray(results) ? results : [];
         render(results);
-        $("#lbMsg").text(results.length ? "" : "No results found for this session.");
+        showMsg(results.length ? "" : "No results found for this session.");
       })
-      .fail(function () { $("#lbMsg").text("Failed to load results."); });
+      .fail(function () { showMsg("Failed to load results. Check your connection."); });
   }
 
   /* ===== Render ===== */
@@ -156,7 +172,7 @@ var LeaderboardPageModel = (function () {
       var $driverCell = $("<td>").addClass("lb-driver-cell");
       if (d.headshotUrl) {
         $driverCell.append(
-          $("<img>").addClass("lb-headshot").attr("src", d.headshotUrl).attr("alt", fullName)
+          $("<img>").addClass("lb-headshot").attr({ src: d.headshotUrl, alt: fullName, loading: "lazy" })
         );
       }
 
@@ -167,7 +183,7 @@ var LeaderboardPageModel = (function () {
         $driverText.append(
           $("<div>").addClass("lb-driver-sub muted").text(
             [d.countryCode || "", d.acronym || "", d.number ? ("#" + d.number) : ""]
-              .filter(Boolean).join(" • ")
+              .filter(Boolean).join(" · ")
           )
         );
       }

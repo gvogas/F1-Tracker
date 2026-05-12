@@ -23,10 +23,12 @@ var TowerData = (function () {
 
   function normalizeCompound(compound) {
     compound = String(compound || "").toUpperCase();
-    if (compound === "SOFT") return { cls: "soft", letter: "S" };
-    if (compound === "MEDIUM") return { cls: "med", letter: "M" };
-    if (compound === "HARD") return { cls: "hard", letter: "H" };
-    return { cls: "", letter: "-" };
+    if (compound === "SOFT")   return { cls: "soft", letter: "S" };
+    if (compound === "MEDIUM") return { cls: "med",  letter: "M" };
+    if (compound === "HARD")   return { cls: "hard", letter: "H" };
+    if (compound === "INTER")  return { cls: "inter", letter: "I" };
+    if (compound === "WET")    return { cls: "wet",  letter: "W" };
+    return { cls: "", letter: "—" };
   }
 
   function normalizeDRS(v) {
@@ -40,14 +42,17 @@ var TowerData = (function () {
     if (v == null) return "—";
     var n = Number(v);
     if (isNaN(n)) return "—";
-    return (n >= 0 ? "+" : "") + n.toFixed(3);
+    if (n === 0) return "Leader";
+    return (n > 0 ? "+" : "") + n.toFixed(3);
   }
 
   function fmtLapTime(sec) {
+    if (typeof F1Utils !== "undefined" && F1Utils.fmtLapTime) {
+      return F1Utils.fmtLapTime(sec);
+    }
     if (sec == null) return "—";
     var s = Number(sec);
     if (!isFinite(s) || s <= 0) return "—";
-
     var m = Math.floor(s / 60);
     var r = s - m * 60;
     return m + ":" + (r < 10 ? "0" : "") + r.toFixed(3);
@@ -92,12 +97,12 @@ var TowerData = (function () {
       var p = ordered[i];
       var num = Number(p.driver_number);
 
-      var drv = driverMap[num] || {};
-      var iv  = intLatest[num] || {};
-      var st  = stintLatest[num] || {};
-      var pt  = pitLatest[num] || {};
-      var lp  = lapLatest[num] || {};
-      var drs = drsLatest[num] || {};
+      var drv  = driverMap[num] || {};
+      var iv   = intLatest[num] || {};
+      var st   = stintLatest[num] || {};
+      var pt   = pitLatest[num] || {};
+      var lp   = lapLatest[num] || {};
+      var drs  = drsLatest[num] || {};
 
       var comp = normalizeCompound(st.compound);
 
@@ -106,25 +111,32 @@ var TowerData = (function () {
       var s2 = Number(lp.duration_sector_2) || 0;
       var s3 = Number(lp.duration_sector_3) || 0;
 
+      // Count total pit stops for this driver
+      var pitCount = 0;
+      (data.pits || []).forEach(function (pit) {
+        if (Number(pit.driver_number) === num) pitCount++;
+      });
+
       rows.push({
         driverNumber: num,
 
-        position: p.position || "—",
-        code: drv.acronym || ("#" + num),
+        position:   p.position || "—",
+        code:       drv.acronym || ("#" + num),
+        teamColour: drv.teamColour || null, // hex without #
 
-        drsState: normalizeDRS(drs.drs),
+        drsState:   normalizeDRS(drs.drs),
 
-        tyreClass: comp.cls,
+        tyreClass:  comp.cls,
         tyreLetter: comp.letter,
 
-        lap: lp.lap_number || "—",
-        pits: pt.lap_number != null ? 1 : 0, // simple v1
+        lap:  lp.lap_number || "—",
+        pits: pitCount,
 
-        gap: fmtGap(iv.gap_to_leader),
+        gap:      fmtGap(iv.gap_to_leader),
         interval: fmtGap(iv.interval),
 
         lastLap: fmtLapTime(lp.lap_duration),
-        bestLap: "—", // v1 (can compute later)
+        bestLap: "—",
 
         s1p: sectorPct(s1, total),
         s2p: sectorPct(s2, total),
@@ -135,7 +147,5 @@ var TowerData = (function () {
     return rows;
   }
 
-  return {
-    build: build
-  };
+  return { build: build };
 })();

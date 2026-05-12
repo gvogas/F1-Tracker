@@ -10,9 +10,12 @@ var ProfilePageModel = {
   },
 
   init: function () {
-    HeaderModel.createHeader();
+    if (typeof HeaderModel !== "undefined") HeaderModel.createHeader();
 
-    var prefs = UserPrefsModel.load();
+    var prefs = (typeof UserPrefsModel !== "undefined" && UserPrefsModel.load)
+      ? UserPrefsModel.load()
+      : {};
+
     F1UI.setPill("#favoriteDriver", prefs.favoriteDriver || "", ProfilePageModel.DRIVER_PLACEHOLDER);
     F1UI.setPill("#favoriteTeam",   prefs.favoriteTeam   || "", ProfilePageModel.TEAM_PLACEHOLDER);
 
@@ -44,6 +47,7 @@ var ProfilePageModel = {
 
   loadDrivers: function () {
     $("#profileMsg").text("Loading drivers…").show();
+    $("#driverGrid").html(ProfilePageModel.buildSkeleton(6));
 
     F1Data.getLatestDrivers(ProfilePageModel.state.year)
       .then(function (drivers) {
@@ -53,7 +57,8 @@ var ProfilePageModel = {
       })
       .catch(function () {
         ProfilePageModel.state.drivers = [];
-        $("#profileMsg").text("Failed to load drivers.").show();
+        $("#profileMsg").text("Failed to load drivers. Check your connection.").show();
+        $("#driverGrid").empty();
       });
   },
 
@@ -64,10 +69,10 @@ var ProfilePageModel = {
 
     var next = { favoriteDriver: driverName, favoriteTeam: teamName };
     if (d) {
-      next.favoriteDriverNumber  = d.number     || "";
-      next.favoriteDriverAcronym = d.acronym    || "";
+      next.favoriteDriverNumber  = d.number      || "";
+      next.favoriteDriverAcronym = d.acronym     || "";
       next.favoriteDriverHeadshot = d.headshotUrl || "";
-      next.favoriteTeamColour    = d.teamColour || "";
+      next.favoriteTeamColour    = d.teamColour  || "";
     }
 
     UserPrefsModel.save(next);
@@ -77,7 +82,8 @@ var ProfilePageModel = {
     }
 
     ProfilePageModel.repaintGrid();
-    $("#profileMsg").text("Saved!").fadeIn(0).delay(1000).fadeOut(300);
+    $("#profileMsg").text("Saved!").show();
+    setTimeout(function () { $("#profileMsg").fadeOut(300); }, 1500);
   },
 
   clear: function () {
@@ -91,7 +97,8 @@ var ProfilePageModel = {
     }
 
     ProfilePageModel.repaintGrid();
-    $("#profileMsg").text("Cleared.").fadeIn(0).delay(1000).fadeOut(300);
+    $("#profileMsg").text("Cleared.").show();
+    setTimeout(function () { $("#profileMsg").fadeOut(300); }, 1500);
   },
 
   repaintGrid: function () {
@@ -103,9 +110,20 @@ var ProfilePageModel = {
 
   findDriverByNum: function (numStr) {
     numStr = String(numStr || "");
-    return ProfilePageModel.state.drivers.find(function (d) {
-      return String(d.number) === numStr;
-    }) || null;
+    for (var i = 0; i < ProfilePageModel.state.drivers.length; i++) {
+      if (String(ProfilePageModel.state.drivers[i].number) === numStr) {
+        return ProfilePageModel.state.drivers[i];
+      }
+    }
+    return null;
+  },
+
+  buildSkeleton: function (count) {
+    var html = "";
+    for (var i = 0; i < count; i++) {
+      html += '<div class="skel" style="height:56px;border-radius:12px;margin-bottom:8px"></div>';
+    }
+    return html;
   }
 };
 

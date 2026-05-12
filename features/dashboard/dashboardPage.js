@@ -6,7 +6,7 @@ var DashboardPageModel = (function () {
     session_key: null
   };
 
-  // ===== Weather refresh =====
+  /* ===== Weather auto-refresh ===== */
   var weatherTimer = null;
 
   function startWeatherRefresh() {
@@ -21,37 +21,46 @@ var DashboardPageModel = (function () {
     weatherTimer = null;
   }
 
-  // ===== Tower polling =====
-  var towerTimer   = null;
+  /* ===== Live tower polling ===== */
+  var towerTimer = null;
 
   function startTower() {
     stopTower();
     tickTower();
     towerTimer = setInterval(tickTower, 2500);
+    setLiveIndicator(true);
   }
 
   function stopTower() {
     clearInterval(towerTimer);
     towerTimer = null;
+    setLiveIndicator(false);
     $("#tower").empty();
+    if (typeof TrackMap !== "undefined") TrackMap.clear();
   }
 
   function tickTower() {
     if (!state.session_key) return;
+
     F1API.tower({ session_key: state.session_key })
       .done(function (rows) {
         TowerUI.render(adaptRows(rows));
+
+        // Update timestamp
+        var now = new Date();
+        var ts = pad2(now.getHours()) + ":" + pad2(now.getMinutes()) + ":" + pad2(now.getSeconds());
+        $("#lastUpdated").text("Updated " + ts);
       })
       .fail(function (xhr) {
         if (xhr.status !== 429) console.warn("tower tick failed", xhr.status);
       });
   }
 
-  // Convert PHP tower rows to TowerUI format
+  // Convert PHP tower rows → TowerUI format
   function adaptRows(rows) {
     return (rows || []).map(function (r) {
-      var driver   = r.driver || {};
-      var compound = String(r.compound || "");
+      var driver    = r.driver || {};
+      var compound  = String(r.compound || "");
       var tyreClass = compound === "S" ? "soft"
                     : compound === "M" ? "med"
                     : compound === "H" ? "hard" : "";
@@ -83,7 +92,17 @@ var DashboardPageModel = (function () {
     });
   }
 
-  // ===== AI cards =====
+  /* ===== Live indicator ===== */
+  function setLiveIndicator(active) {
+    var $el = $("#liveIndicator");
+    if (active) {
+      $el.addClass("is-live").text("● LIVE");
+    } else {
+      $el.removeClass("is-live").text("IDLE");
+    }
+  }
+
+  /* ===== AI cards ===== */
   var aiCommentaryTimer = null;
   var aiPredTimer       = null;
 
@@ -100,7 +119,7 @@ var DashboardPageModel = (function () {
       if (state.session_key) loadAiPrediction(state.session_key);
     }, 60000);
 
-    // Load once on start
+    // Load immediately on session start
     if (state.session_key) {
       loadAiCommentary(state.session_key);
       loadAiPrediction(state.session_key);
@@ -156,16 +175,40 @@ var DashboardPageModel = (function () {
       });
   }
 
-  // ===== Weather =====
+  /* ===== AI tab switching ===== */
+  function initAiTabs() {
+    $(document).on("click", ".ai-tab", function () {
+      var tabId = $(this).attr("data-tab");
+      $(".ai-tab").removeClass("is-active");
+      $(this).addClass("is-active");
+      $(".ai-content").hide();
+      $("#" + tabId).show();
+    });
+
+    $("#aiRefreshBtn").on("click", function () {
+      if (state.session_key) {
+        loadAiCommentary(state.session_key);
+        loadAiPrediction(state.session_key);
+        loadAiRaceControl(state.session_key);
+        loadAiStrategy(state.session_key);
+      }
+    });
+  }
+
+  /* ===== Weather ===== */
   function loadWeather(sessionKey) {
     WeatherData.getLatestForSession(sessionKey)
       .then(function (w) { WeatherData.renderToDashboard(w); })
       .catch(function ()  { /* silent */ });
   }
 
-  // ===== Init =====
+  /* ===== Init ===== */
   function init() {
-    HeaderModel.createHeader();
+    if (typeof HeaderModel !== "undefined") HeaderModel.createHeader();
+
+    if (typeof TrackMap !== "undefined") {
+      TrackMap.init("trackMap");
+    }
 
     $("#refreshBtn").on("click", function () { loadMeetings(true); });
 
@@ -188,6 +231,7 @@ var DashboardPageModel = (function () {
       }
     });
 
+    initAiTabs();
     loadMeetings(false);
     startWeatherRefresh();
   }
@@ -202,15 +246,20 @@ var DashboardPageModel = (function () {
     F1API.meetings({ year: state.year })
       .done(function (meetings) {
         meetings = Array.isArray(meetings) ? meetings : [];
-        if (!meetings.length) return;
+        if (!meetings.length) {
+          $("#meetingSelect").prop("disabled", false);
+          return;
+        }
 
         $("#meetingSelect").append('<option value="">Select race</option>');
         for (var i = 0; i < meetings.length; i++) {
-          var m     = meetings[i];
+          var m     = meetings[i]; // PHP camelCase: m.key, m.name, m.dateStart
           var label = m.name || m.officialName || ("Meeting " + m.key);
-          $("#meetingSelect").append(
-            $("<option>").val(m.key).text(label)
-          );
+          var d     = m.dateStart ? new Date(m.dateStart) : null;
+          if (d && !isNaN(d)) {
+            label += " · " + d.toLocaleDateString(undefined, { month: "short", day: "2-digit" });
+          }
+          $("#meetingSelect").append($("<option>").val(m.key).text(label));
         }
 
         var picked = (force || !state.meeting_key)
@@ -247,12 +296,20 @@ var DashboardPageModel = (function () {
     F1API.sessions({ meeting_key: meetingKey })
       .done(function (sessions) {
         sessions = Array.isArray(sessions) ? sessions : [];
-        if (!sessions.length) return;
+        if (!sessions.length) {
+          $("#sessionSelect").prop("disabled", false);
+          return;
+        }
 
         $("#sessionSelect").append('<option value="">Select session</option>');
         for (var i = 0; i < sessions.length; i++) {
-          var s     = sessions[i];
+          var s     = sessions[i]; // PHP camelCase: s.key, s.name, s.dateStart
           var label = s.name || ("Session " + s.key);
+          var d     = s.dateStart ? new Date(s.dateStart) : null;
+          if (d && !isNaN(d)) {
+            label += " · " + d.toLocaleDateString(undefined, { weekday: "short" }) + " " +
+              d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+          }
           $("#sessionSelect").append($("<option>").val(s.key).text(label));
         }
 
@@ -270,6 +327,11 @@ var DashboardPageModel = (function () {
         startAiRefresh();
       })
       .fail(function () { $("#sessionSelect").prop("disabled", false); });
+  }
+
+  /* ===== Helpers ===== */
+  function pad2(n) {
+    return (n < 10 ? "0" : "") + n;
   }
 
   return { init: init };
