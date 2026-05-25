@@ -39,7 +39,9 @@ class LocationController extends ApiController
         $from   = gmdate('Y-m-d\TH:i:s', $anchor - 4) . 'Z';
         $params = ['session_key' => $sessionKey, 'date' => '>=' . $from];
         if ($date) {
-            $params['date'] = ['>=' . $from, '<=' . $date];
+            // Normalise both bounds the same way (UTC) rather than echoing the raw input.
+            $to = gmdate('Y-m-d\TH:i:s', $anchor) . 'Z';
+            $params['date'] = ['>=' . $from, '<=' . $to];
         }
 
         try {
@@ -81,8 +83,10 @@ class LocationController extends ApiController
 
         $base = ['session_key' => $sessionKey, 'driver_number' => $driverNum];
         if ($date && ($t = strtotime($date)) !== false) {
-            $base['date'] = ['>=' . gmdate('Y-m-d\TH:i:s', $t - 90) . 'Z',
-                             '<=' . gmdate('Y-m-d\TH:i:s', $t + 90) . 'Z'];
+            // Bias forward from the anchor (usually session start) so the opening
+            // laps trace the circuit even for practice/quali out-laps.
+            $base['date'] = ['>=' . gmdate('Y-m-d\TH:i:s', $t - 30) . 'Z',
+                             '<=' . gmdate('Y-m-d\TH:i:s', $t + 270) . 'Z'];
         } else {
             $base['date'] = '>=' . gmdate('Y-m-d\TH:i:s', time() - 180) . 'Z';
         }

@@ -44,6 +44,13 @@ var RacePage = (function () {
     F1API.sessions({ meeting_key: meetingKey })
       .done(function (sessions) {
         sessions = Array.isArray(sessions) ? sessions : [];
+        if (!sessions.length) {
+          $("#sessionSelect").empty()
+            .append('<option value="">No sessions found</option>')
+            .prop("disabled", false);
+          showError("No sessions found for this meeting.");
+          return;
+        }
 
         sessions.sort(function (a, b) {
           return Date.parse(a.dateStart) - Date.parse(b.dateStart);
@@ -133,10 +140,13 @@ var RacePage = (function () {
   }
 
   function updateMap(tIso) {
-    if (typeof TrackMap === "undefined" || !state.session_key || mapInFlight) return;
+    if (typeof TrackMap === "undefined" || !state.session_key || mapInFlight ||
+        !F1Utils.isVisible("trackMap")) return;
+    var sk = state.session_key;
     mapInFlight = true;
-    F1API.location({ session_key: state.session_key, date: tIso })
+    F1API.location({ session_key: sk, date: tIso })
       .done(function (rows) {
+        if (state.session_key !== sk) return; // session changed mid-flight
         rows = Array.isArray(rows) ? rows : [];
         TrackMap.update(rows, state.driverInfo);
 
@@ -191,10 +201,12 @@ var RacePage = (function () {
     if (replayInFlight) return;
 
     var tIso = new Date(replayClockMs).toISOString();
+    var sk   = state.session_key;
 
     replayInFlight = true;
-    F1API.tower({ session_key: state.session_key, date: tIso })
+    F1API.tower({ session_key: sk, date: tIso })
       .done(function (rows) {
+        if (state.session_key !== sk) return; // session changed mid-flight
         TowerUI.render(TowerAdapter.adaptRows(rows));
         state.driverInfo = buildDriverInfo(rows);
       })

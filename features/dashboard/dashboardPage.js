@@ -48,9 +48,11 @@ var DashboardPageModel = (function () {
     // avoids piling up overlapping requests and hammering the API.
     if (!state.session_key || document.hidden || towerInFlight) return;
 
+    var sk = state.session_key;
     towerInFlight = true;
-    F1API.tower({ session_key: state.session_key })
+    F1API.tower({ session_key: sk })
       .done(function (rows) {
+        if (state.session_key !== sk) return; // session changed mid-flight
         TowerUI.render(TowerAdapter.adaptRows(rows));
         state.driverInfo = buildDriverInfo(rows);
 
@@ -109,11 +111,16 @@ var DashboardPageModel = (function () {
   }
 
   function tickMap() {
-    if (!state.session_key || document.hidden || mapInFlight || typeof TrackMap === "undefined") return;
+    // Skip when backgrounded, already in flight, or the map isn't actually
+    // visible (hidden under the responsive breakpoint) — don't burn API quota.
+    if (!state.session_key || document.hidden || mapInFlight ||
+        typeof TrackMap === "undefined" || !F1Utils.isVisible("trackMap")) return;
 
+    var sk = state.session_key;
     mapInFlight = true;
-    F1API.location({ session_key: state.session_key })
+    F1API.location({ session_key: sk })
       .done(function (rows) {
+        if (state.session_key !== sk) return; // session changed mid-flight
         rows = Array.isArray(rows) ? rows : [];
         TrackMap.update(rows, state.driverInfo);
 

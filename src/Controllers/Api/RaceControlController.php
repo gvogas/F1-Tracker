@@ -17,13 +17,8 @@ class RaceControlController extends ApiController
             return $this->error($response, 'session_key is required', 400);
         }
 
-        $cKey = $this->cache->key('race-control', ['session_key' => $sessionKey]);
-
-        return $this->cachedJson(
-            $response,
-            $cKey,
-            10,
-            fn(): array => $this->openF1->get('race_control', ['session_key' => $sessionKey]),
-        );
+        // Shares the 'race_control' cache key with AiController so the two don't
+        // each hit OpenF1 separately for the same data.
+        return $this->json($response, $this->fetchCached('race_control', ['session_key' => $sessionKey], 10));
     }
 }

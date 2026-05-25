@@ -106,8 +106,9 @@ $errorMiddleware->setErrorHandler(HttpNotFoundException::class, function ($reque
     return $response->withHeader('Content-Type', 'application/json');
 });
 $errorMiddleware->setErrorHandler(RuntimeException::class, function ($request, $exception) use ($app) {
+    error_log('F1-Tracker upstream error: ' . $exception->getMessage());
     $response = $app->getResponseFactory()->createResponse(503);
-    $response->getBody()->write(json_encode(['error' => $exception->getMessage()]));
+    $response->getBody()->write(json_encode(['error' => 'Service temporarily unavailable']));
     return $response->withHeader('Content-Type', 'application/json');
 }, true);
 

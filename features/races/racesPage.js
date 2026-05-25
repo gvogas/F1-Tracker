@@ -60,7 +60,7 @@ var RacesPage = (function () {
         if (!meetings.length) {
           $("#racesGrid").html(
             '<div class="state-box"><i class="fa-solid fa-calendar-xmark state-icon"></i>'
-            + 'No races found for ' + year + '.</div>'
+            + 'No races found for ' + Number(year) + '.</div>'
           );
           return;
         }
@@ -85,7 +85,7 @@ var RacesPage = (function () {
               ? '<span class="race-badge past"><i class="fa-solid fa-flag-checkered"></i> Completed</span>'
               : '<span class="race-badge upcoming"><i class="fa-regular fa-clock"></i> ' + F1Utils.escapeHtml(countdownText(d, now)) + '</span>';
 
-          html += '<button class="race-card' + (isPast ? " race-card--past" : " race-card--future") + '" data-key="' + m.key + '" type="button">'
+          html += '<button class="race-card' + (isPast ? " race-card--past" : " race-card--future") + '" data-key="' + Number(m.key) + '" type="button">'
             + '<div class="race-card-head"><span class="race-card-flag">' + flag + '</span>' + badge + '</div>'
             + '<div class="race-title">' + F1Utils.escapeHtml(name) + '</div>'
             + '<div class="race-sub">' + F1Utils.escapeHtml(loc) + (country && loc !== country ? " · " + F1Utils.escapeHtml(country) : "") + '</div>'

@@ -14,6 +14,7 @@ var TrackMap = (function () {
   var bounds = { minX: 0, maxX: 1, minY: 0, maxY: 1 };
   var trackPoints = [];
   var initialized = false, seeded = false;
+  var resizeTimer = null;
 
   var targets = {};   // num -> {x,y}   latest reported position
   var current = {};   // num -> {x,y}   eased on-screen position
@@ -29,6 +30,16 @@ var TrackMap = (function () {
     setupSize();
     initialized = true;
     drawPlaceholder();
+
+    // Re-fit the backing store after layout/breakpoint changes (debounced).
+    window.addEventListener("resize", function () {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(function () {
+        if (!initialized) return;
+        setupSize();
+        draw();
+      }, 200);
+    });
   }
 
   function setupSize() {
@@ -116,23 +127,37 @@ var TrackMap = (function () {
     if (initialized) drawPlaceholder();
   }
 
-  /* ===== Animation loop ===== */
+  /* ===== Animation loop =====
+     Runs only while cars are still easing toward their targets; goes idle once
+     settled and is restarted by the next update()/seedTrack() via ensureLoop().
+  ===== */
   function ensureLoop() {
     if (rafId === null) loop();
   }
 
   function loop() {
-    rafId = requestAnimationFrame(loop);
-    step();
+    var moving = step();
     draw();
+    rafId = moving ? requestAnimationFrame(loop) : null;
   }
 
   function step() {
+    var eps = ((bounds.maxX - bounds.minX) + (bounds.maxY - bounds.minY)) * 0.0004 || 1;
+    var moving = false;
     Object.keys(targets).forEach(function (num) {
-      var c = current[num] || (current[num] = { x: targets[num].x, y: targets[num].y });
-      c.x += (targets[num].x - c.x) * 0.18;
-      c.y += (targets[num].y - c.y) * 0.18;
+      var c  = current[num] || (current[num] = { x: targets[num].x, y: targets[num].y });
+      var dx = targets[num].x - c.x;
+      var dy = targets[num].y - c.y;
+      if (Math.abs(dx) > eps || Math.abs(dy) > eps) {
+        c.x += dx * 0.18;
+        c.y += dy * 0.18;
+        moving = true;
+      } else {
+        c.x = targets[num].x;
+        c.y = targets[num].y;
+      }
     });
+    return moving;
   }
 
   /* ===== Bounds ===== */

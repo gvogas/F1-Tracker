@@ -159,7 +159,9 @@ class AiController extends ApiController
             $this->cache->set($cacheKey, $out, $ttl);
             return $this->json($response, $out);
         } catch (Throwable $e) {
-            return $this->error($response, $e->getMessage(), 502);
+            // Log the detail server-side; don't leak upstream/error bodies to the client.
+            error_log("AI endpoint '{$feature}' failed: " . $e->getMessage());
+            return $this->error($response, 'AI service temporarily unavailable', 502);
         }
     }
 
@@ -200,8 +202,8 @@ class AiController extends ApiController
             $stintsByDriver[(int) ($s['driver_number'] ?? 0)][] = $s;
         }
         $pitsByDriver = [];
-        foreach ($pits as $p) {
-            $pitsByDriver[(int) ($p['driver_number'] ?? 0)][] = $p;
+        foreach ($pits as $pit) {
+            $pitsByDriver[(int) ($pit['driver_number'] ?? 0)][] = $pit;
         }
 
         $rows = [];

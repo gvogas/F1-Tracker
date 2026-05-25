@@ -155,7 +155,9 @@ class TowerController extends ApiController
         $from   = gmdate('Y-m-d\TH:i:s', $anchor - 5) . 'Z';
         $params = ['session_key' => $sessionKey, 'date' => '>=' . $from];
         if ($date) {
-            $params['date'] = ['>=' . $from, '<=' . $date];
+            // Normalise both bounds the same way (UTC) rather than echoing the raw input.
+            $to = gmdate('Y-m-d\TH:i:s', $anchor) . 'Z';
+            $params['date'] = ['>=' . $from, '<=' . $to];
         }
 
         try {

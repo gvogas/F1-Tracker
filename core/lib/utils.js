@@ -48,26 +48,14 @@ var F1Utils = {
     }
   },
 
-  /* ===== Safe AJAX wrapper =====
-     Wraps any jQuery XHR promise so failures always resolve to [].
-     On 429/503 it sets the global backoff clock.
+  /* ===== Visibility =====
+     True only when the element is actually laid out (not display:none, e.g. the
+     track map hidden under the responsive breakpoint). Used to avoid polling for
+     a widget the user can't see.
   ===== */
-  safeAjax: function (jqXhr, label) {
-    var d = $.Deferred();
-    jqXhr
-      .done(function (data) {
-        d.resolve(Array.isArray(data) ? data : (data || []));
-      })
-      .fail(function (xhr) {
-        var status = xhr && xhr.status;
-        if (status === 429 || status === 503) {
-          var retryAfter = (xhr.getResponseHeader && parseInt(xhr.getResponseHeader("Retry-After"), 10)) || 0;
-          F1Utils.setBackoff(retryAfter > 0 ? retryAfter * 1000 : 8000);
-        }
-        console.warn("[F1Utils] " + (label || "request") + " failed — status " + status);
-        d.resolve([]);
-      });
-    return d.promise();
+  isVisible: function (el) {
+    if (typeof el === "string") el = document.getElementById(el);
+    return !!el && el.offsetParent !== null && el.clientWidth > 0 && el.clientHeight > 0;
   },
 
   /* ===== Preferences ===== */
