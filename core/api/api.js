@@ -76,6 +76,14 @@ var F1API = {
         return F1API._get('race-control', params);
     },
 
+    location: function (params) {
+        return F1API._get('location', params);
+    },
+
+    trackOutline: function (params) {
+        return F1API._get('track-outline', params);
+    },
+
     /* ===== AI endpoints (POST) ===== */
 
     aiCommentator: function (sessionKey) {

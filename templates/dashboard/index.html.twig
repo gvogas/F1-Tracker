@@ -42,20 +42,31 @@
 
 <main>
 
-  <!-- Timing tower -->
-  <section class="tower-wrap">
-    <div class="tower-legend" aria-hidden="true">
-      <div class="lg-pos" title="Position">POS</div>
-      <div class="lg-code" title="Driver">Driver</div>
-      <div class="lg-drs" title="Drag Reduction System">DRS</div>
-      <div class="lg-tyre" title="Tyre compound">Tyre</div>
-      <div class="lg-lap" title="Current lap · pit stops">Lap·Pit</div>
-      <div class="lg-gap" title="Gap to leader · interval to car ahead">Gap·Int</div>
-      <div class="lg-last" title="Last lap · best lap">Last·Best</div>
-      <div class="lg-sectors" title="Sector 1 · 2 · 3">Sectors</div>
-    </div>
-    <section class="tower" id="tower"></section>
-  </section>
+  <!-- Timing tower + live track map -->
+  <div class="dash-body">
+    <section class="tower-wrap">
+      <div class="tower-legend" aria-hidden="true">
+        <div class="lg-pos" title="Position">POS</div>
+        <div class="lg-code" title="Driver">Driver</div>
+        <div class="lg-drs" title="Drag Reduction System">DRS</div>
+        <div class="lg-tyre" title="Tyre compound">Tyre</div>
+        <div class="lg-lap" title="Current lap · pit stops">Lap·Pit</div>
+        <div class="lg-gap" title="Gap to leader · interval to car ahead">Gap·Int</div>
+        <div class="lg-last" title="Last lap · best lap">Last·Best</div>
+        <div class="lg-sectors" title="Sector 1 · 2 · 3">Sectors</div>
+      </div>
+      <section class="tower" id="tower"></section>
+    </section>
+
+    <aside class="track-map-wrap">
+      <div class="track-map-head">
+        <span class="track-map-title">Track Map</span>
+        <span class="track-map-sub muted" id="mapStatus"></span>
+      </div>
+      <canvas class="track-map" id="trackMap" width="320" height="320"></canvas>
+      <div class="track-map-hint">Live car positions · OpenF1</div>
+    </aside>
+  </div>
 
   <!-- AI cards row -->
   <div class="grid" id="aiCards" style="margin-top:1rem;">

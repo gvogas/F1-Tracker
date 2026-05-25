@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Controllers\Api\AiController;
 use App\Controllers\Api\DriversController;
 use App\Controllers\Api\LapsController;
+use App\Controllers\Api\LocationController;
 use App\Controllers\Api\MeetingsController;
 use App\Controllers\Api\RaceControlController;
 use App\Controllers\Api\ResultsController;
@@ -72,6 +73,7 @@ foreach ([
     WeatherController::class,
     LapsController::class,
     RaceControlController::class,
+    LocationController::class,
 ] as $class) {
     $container->set($class, function (Container $c) use ($class) {
         return new $class($c->get(OpenF1Service::class), $c->get(CacheService::class));
@@ -131,6 +133,8 @@ $app->group('/api', function (RouteCollectorProxy $group) {
     $group->get('/tower',         [TowerController::class,       'index']);
     $group->get('/laps',          [LapsController::class,        'index']);
     $group->get('/race-control',  [RaceControlController::class, 'index']);
+    $group->get('/location',      [LocationController::class,    'index']);
+    $group->get('/track-outline', [LocationController::class,    'outline']);
 
     // AI endpoints (POST)
     $group->post('/ai/commentator',          [AiController::class, 'commentator']);

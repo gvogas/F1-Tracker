@@ -3,7 +3,8 @@ var DashboardPageModel = (function () {
   var state = {
     year:        new Date().getFullYear(),
     meeting_key: null,
-    session_key: null
+    session_key: null,
+    driverInfo:  {}   // number -> { color, acronym, position }, fed to the track map
   };
 
   /* ===== Weather auto-refresh ===== */
@@ -30,6 +31,7 @@ var DashboardPageModel = (function () {
     tickTower();
     towerTimer = setInterval(tickTower, 5000);
     setLiveIndicator(true);
+    startMap();
   }
 
   function stopTower() {
@@ -38,7 +40,7 @@ var DashboardPageModel = (function () {
     towerInFlight = false;
     setLiveIndicator(false);
     $("#tower").empty();
-    if (typeof TrackMap !== "undefined") TrackMap.clear();
+    stopMap();
   }
 
   function tickTower() {
@@ -50,6 +52,7 @@ var DashboardPageModel = (function () {
     F1API.tower({ session_key: state.session_key })
       .done(function (rows) {
         TowerUI.render(TowerAdapter.adaptRows(rows));
+        state.driverInfo = buildDriverInfo(rows);
 
         var now = new Date();
         var ts = F1Utils.pad2(now.getHours()) + ":" + F1Utils.pad2(now.getMinutes()) + ":" + F1Utils.pad2(now.getSeconds());
@@ -59,6 +62,72 @@ var DashboardPageModel = (function () {
         if (xhr.status !== 429) console.warn("tower tick failed", xhr.status);
       })
       .always(function () { towerInFlight = false; });
+  }
+
+  // number -> { color, acronym, position } for the track map dots
+  function buildDriverInfo(rows) {
+    var map = {};
+    (Array.isArray(rows) ? rows : []).forEach(function (r) {
+      if (!r.driverNumber) return;
+      var d = r.driver || {};
+      map[r.driverNumber] = {
+        color:    d.teamColour || null,
+        acronym:  d.acronym || "",
+        position: r.position || 0
+      };
+    });
+    return map;
+  }
+
+  /* ===== Live track map ===== */
+  var mapTimer    = null;
+  var mapInFlight = false;
+
+  function startMap() {
+    stopMap();
+    if (typeof TrackMap === "undefined" || !state.session_key) return;
+    seedMap();
+    tickMap();
+    mapTimer = setInterval(tickMap, 3000);
+  }
+
+  function stopMap() {
+    clearInterval(mapTimer);
+    mapTimer = null;
+    mapInFlight = false;
+    if (typeof TrackMap !== "undefined") TrackMap.clear();
+    $("#mapStatus").text("");
+  }
+
+  // One-time circuit outline for the current session (server caches it for ~1h).
+  function seedMap() {
+    if (typeof TrackMap === "undefined" || !state.session_key) return;
+    F1API.trackOutline({ session_key: state.session_key })
+      .done(function (points) {
+        if (Array.isArray(points) && points.length) TrackMap.seedTrack(points);
+      });
+  }
+
+  function tickMap() {
+    if (!state.session_key || document.hidden || mapInFlight || typeof TrackMap === "undefined") return;
+
+    mapInFlight = true;
+    F1API.location({ session_key: state.session_key })
+      .done(function (rows) {
+        rows = Array.isArray(rows) ? rows : [];
+        TrackMap.update(rows, state.driverInfo);
+
+        var seen = {};
+        for (var i = 0; i < rows.length; i++) {
+          if (rows[i] && rows[i].driver_number) seen[rows[i].driver_number] = true;
+        }
+        var n = Object.keys(seen).length;
+        $("#mapStatus").text(n ? (n + " cars") : "");
+      })
+      .fail(function (xhr) {
+        if (xhr.status !== 429) console.warn("map tick failed", xhr.status);
+      })
+      .always(function () { mapInFlight = false; });
   }
 
   /* ===== Live indicator ===== */
@@ -229,6 +298,7 @@ var DashboardPageModel = (function () {
     document.addEventListener("visibilitychange", function () {
       if (!document.hidden && state.session_key) {
         tickTower();
+        tickMap();
         loadWeather(state.session_key);
       }
     });
