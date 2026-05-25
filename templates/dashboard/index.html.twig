@@ -6,84 +6,115 @@
 
 <div class="lb-controls">
   <div class="select-wrap">
-    <select class="select" id="meetingSelect"></select>
+    <select class="select" id="meetingSelect" aria-label="Select race weekend"></select>
   </div>
   <div class="select-wrap">
-    <select class="select" id="sessionSelect"></select>
+    <select class="select" id="sessionSelect" aria-label="Select session"></select>
   </div>
   <button class="btn ghost" id="refreshBtn" type="button">Refresh</button>
-  <span id="liveIndicator" style="font-size:0.72rem;padding:2px 10px;border-radius:12px;background:var(--card-bg,#1e1e2e);border:1px solid var(--border,#333);color:var(--muted,#888)">IDLE</span>
+  <span class="live-badge" id="liveIndicator">IDLE</span>
   <span class="muted" id="lastUpdated" style="font-size:0.72rem;"></span>
 </div>
 
 <!-- Weather bar -->
-<div class="wxbar" id="weatherBar">
-  <div class="wxchip" id="wxTrc">
+<div class="wxbar" id="weatherBar" aria-label="Track conditions">
+  <div class="wxchip" id="wxTrc" title="Track temperature (°C)">
     <div class="wxvalue">--</div>
-    <div class="wxlabel">TRC</div>
+    <div class="wxlabel">Track</div>
   </div>
-  <div class="wxchip" id="wxAir">
+  <div class="wxchip" id="wxAir" title="Air temperature (°C)">
     <div class="wxvalue">--</div>
-    <div class="wxlabel">AIR</div>
+    <div class="wxlabel">Air</div>
   </div>
-  <div class="wxchip" id="wxHum">
+  <div class="wxchip" id="wxHum" title="Relative humidity (%)">
     <div class="wxvalue">--</div>
-    <div class="wxlabel">HUM</div>
+    <div class="wxlabel">Humidity</div>
   </div>
-  <div class="wxchip wxicon" id="wxRain">
+  <div class="wxchip wxicon" id="wxRain" title="Rainfall">
     <i class="fa-solid fa-cloud"></i>
-    <div class="wxlabel">RAIN</div>
+    <div class="wxlabel">Rain</div>
   </div>
-  <div class="wxchip wxicon" id="wxWind">
+  <div class="wxchip wxicon" id="wxWind" title="Wind direction and speed">
     <div class="wxvalue">--</div>
-    <div class="wxlabel">-- m/s</div>
+    <div class="wxlabel">Wind</div>
   </div>
 </div>
 
 <main>
 
-  <!-- Timing tower -->
-  <section class="tower" id="tower"></section>
+  <!-- Timing tower + live track map -->
+  <div class="dash-body">
+    <section class="tower-wrap">
+      <div class="tower-legend" aria-hidden="true">
+        <div class="lg-pos" title="Position">POS</div>
+        <div class="lg-code" title="Driver">Driver</div>
+        <div class="lg-drs" title="Drag Reduction System">DRS</div>
+        <div class="lg-tyre" title="Tyre compound">Tyre</div>
+        <div class="lg-lap" title="Current lap · pit stops">Lap·Pit</div>
+        <div class="lg-gap" title="Gap to leader · interval to car ahead">Gap·Int</div>
+        <div class="lg-last" title="Last lap · best lap">Last·Best</div>
+        <div class="lg-sectors" title="Sector 1 · 2 · 3">Sectors</div>
+      </div>
+      <section class="tower" id="tower"></section>
+    </section>
+
+    <aside class="track-map-wrap">
+      <div class="track-map-head">
+        <span class="track-map-title">Track Map</span>
+        <span class="track-map-sub muted" id="mapStatus"></span>
+      </div>
+      <canvas class="track-map" id="trackMap" width="320" height="320"></canvas>
+      <div class="track-map-hint">Live car positions · OpenF1</div>
+    </aside>
+  </div>
 
   <!-- AI cards row -->
   <div class="grid" id="aiCards" style="margin-top:1rem;">
 
     <!-- Goal 6: Live Commentary -->
-    <div class="card" id="aiCommentaryCard" style="display:none;">
+    <div class="card" id="aiCommentaryCard">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
         <h3 style="margin:0;">Live Commentary</h3>
         <span class="hero-badge" style="font-size:0.7rem;">AI</span>
       </div>
-      <p class="muted" id="aiCommentaryText" style="margin:0;line-height:1.5;">—</p>
+      <div id="aiCommentaryText" data-feature="commentary">
+        <span class="ai-state"><span class="spinner"></span> Waiting for a session…</span>
+      </div>
     </div>
 
     <!-- Goal 8: Stewards' Summary -->
-    <div class="card" id="aiRCCard" style="display:none;">
+    <div class="card" id="aiRCCard">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
         <h3 style="margin:0;">Stewards' Summary</h3>
         <span class="hero-badge" style="font-size:0.7rem;">AI</span>
       </div>
-      <p class="muted" id="aiRCText" style="margin:0;line-height:1.5;">—</p>
+      <div id="aiRCText" data-feature="raceControl">
+        <span class="ai-state"><span class="spinner"></span> Waiting for a session…</span>
+      </div>
     </div>
 
     <!-- Goal 9: Race Prediction -->
-    <div class="card" id="aiPredCard" style="display:none;">
+    <div class="card" id="aiPredCard">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
         <h3 style="margin:0;">Race Prediction</h3>
         <span class="hero-badge" style="font-size:0.7rem;">AI · flan-t5</span>
       </div>
-      <p class="muted" id="aiPredText" style="margin:0;line-height:1.5;">—</p>
+      <div id="aiPredText" data-feature="prediction">
+        <span class="ai-state"><span class="spinner"></span> Waiting for a session…</span>
+      </div>
     </div>
 
   </div>
 
   <!-- Goal 7: Strategy Analysis (collapsible) -->
-  <details class="card" id="aiStrategyCard" style="margin-top:1rem;display:none;">
+  <details class="card" id="aiStrategyCard" style="margin-top:1rem;">
     <summary style="cursor:pointer;display:flex;align-items:center;gap:8px;">
       <strong>Strategy Analysis</strong>
       <span class="hero-badge" style="font-size:0.7rem;">AI</span>
     </summary>
-    <p class="muted" id="aiStrategyText" style="margin:8px 0 0;line-height:1.5;">—</p>
+    <div id="aiStrategyText" data-feature="strategy" style="margin-top:8px;">
+      <span class="ai-state"><span class="spinner"></span> Waiting for a session…</span>
+    </div>
   </details>
 
 </main>
@@ -95,5 +126,6 @@
 <script src="/core/f1/towerUI.js"></script>
 <script src="/core/f1/f1.ui.js"></script>
 <script src="/core/f1/towerAdapter.js"></script>
+<script src="/core/f1/trackMap.js"></script>
 <script src="/features/dashboard/dashboardPage.js"></script>
 {% endblock %}

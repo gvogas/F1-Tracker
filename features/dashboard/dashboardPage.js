@@ -3,7 +3,8 @@ var DashboardPageModel = (function () {
   var state = {
     year:        new Date().getFullYear(),
     meeting_key: null,
-    session_key: null
+    session_key: null,
+    driverInfo:  {}   // number -> { color, acronym, position }, fed to the track map
   };
 
   /* ===== Weather auto-refresh ===== */
@@ -12,7 +13,7 @@ var DashboardPageModel = (function () {
   function startWeatherRefresh() {
     stopWeatherRefresh();
     weatherTimer = setInterval(function () {
-      if (state.session_key) loadWeather(state.session_key);
+      if (state.session_key && !document.hidden) loadWeather(state.session_key);
     }, 60000);
   }
 
@@ -22,29 +23,38 @@ var DashboardPageModel = (function () {
   }
 
   /* ===== Live tower polling ===== */
-  var towerTimer = null;
+  var towerTimer    = null;
+  var towerInFlight = false;
 
   function startTower() {
     stopTower();
     tickTower();
-    towerTimer = setInterval(tickTower, 2500);
+    towerTimer = setInterval(tickTower, 5000);
     setLiveIndicator(true);
+    startMap();
   }
 
   function stopTower() {
     clearInterval(towerTimer);
     towerTimer = null;
+    towerInFlight = false;
     setLiveIndicator(false);
     $("#tower").empty();
-    if (typeof TrackMap !== "undefined") TrackMap.clear();
+    stopMap();
   }
 
   function tickTower() {
-    if (!state.session_key) return;
+    // Skip while the tab is backgrounded or a request is already in flight —
+    // avoids piling up overlapping requests and hammering the API.
+    if (!state.session_key || document.hidden || towerInFlight) return;
 
-    F1API.tower({ session_key: state.session_key })
+    var sk = state.session_key;
+    towerInFlight = true;
+    F1API.tower({ session_key: sk })
       .done(function (rows) {
+        if (state.session_key !== sk) return; // session changed mid-flight
         TowerUI.render(TowerAdapter.adaptRows(rows));
+        state.driverInfo = buildDriverInfo(rows);
 
         var now = new Date();
         var ts = F1Utils.pad2(now.getHours()) + ":" + F1Utils.pad2(now.getMinutes()) + ":" + F1Utils.pad2(now.getSeconds());
@@ -52,7 +62,79 @@ var DashboardPageModel = (function () {
       })
       .fail(function (xhr) {
         if (xhr.status !== 429) console.warn("tower tick failed", xhr.status);
+      })
+      .always(function () { towerInFlight = false; });
+  }
+
+  // number -> { color, acronym, position } for the track map dots
+  function buildDriverInfo(rows) {
+    var map = {};
+    (Array.isArray(rows) ? rows : []).forEach(function (r) {
+      if (!r.driverNumber) return;
+      var d = r.driver || {};
+      map[r.driverNumber] = {
+        color:    d.teamColour || null,
+        acronym:  d.acronym || "",
+        position: r.position || 0
+      };
+    });
+    return map;
+  }
+
+  /* ===== Live track map ===== */
+  var mapTimer    = null;
+  var mapInFlight = false;
+
+  function startMap() {
+    stopMap();
+    if (typeof TrackMap === "undefined" || !state.session_key) return;
+    seedMap();
+    tickMap();
+    mapTimer = setInterval(tickMap, 3000);
+  }
+
+  function stopMap() {
+    clearInterval(mapTimer);
+    mapTimer = null;
+    mapInFlight = false;
+    if (typeof TrackMap !== "undefined") TrackMap.clear();
+    $("#mapStatus").text("");
+  }
+
+  // One-time circuit outline for the current session (server caches it for ~1h).
+  function seedMap() {
+    if (typeof TrackMap === "undefined" || !state.session_key) return;
+    F1API.trackOutline({ session_key: state.session_key })
+      .done(function (points) {
+        if (Array.isArray(points) && points.length) TrackMap.seedTrack(points);
       });
+  }
+
+  function tickMap() {
+    // Skip when backgrounded, already in flight, or the map isn't actually
+    // visible (hidden under the responsive breakpoint) — don't burn API quota.
+    if (!state.session_key || document.hidden || mapInFlight ||
+        typeof TrackMap === "undefined" || !F1Utils.isVisible("trackMap")) return;
+
+    var sk = state.session_key;
+    mapInFlight = true;
+    F1API.location({ session_key: sk })
+      .done(function (rows) {
+        if (state.session_key !== sk) return; // session changed mid-flight
+        rows = Array.isArray(rows) ? rows : [];
+        TrackMap.update(rows, state.driverInfo);
+
+        var seen = {};
+        for (var i = 0; i < rows.length; i++) {
+          if (rows[i] && rows[i].driver_number) seen[rows[i].driver_number] = true;
+        }
+        var n = Object.keys(seen).length;
+        $("#mapStatus").text(n ? (n + " cars") : "");
+      })
+      .fail(function (xhr) {
+        if (xhr.status !== 429) console.warn("map tick failed", xhr.status);
+      })
+      .always(function () { mapInFlight = false; });
   }
 
   /* ===== Live indicator ===== */
@@ -72,23 +154,18 @@ var DashboardPageModel = (function () {
   function startAiRefresh() {
     stopAiRefresh();
 
-    // Goal 6: commentary every 30s
+    // Goal 6: commentary every 30s (silent refresh — no spinner flash)
     aiCommentaryTimer = setInterval(function () {
-      if (state.session_key) loadAiCommentary(state.session_key);
+      if (state.session_key && !document.hidden) loadAiCommentary(state.session_key, false);
     }, 30000);
 
-    // Goal 9: prediction every 60s
+    // Goal 9: prediction every 60s (silent refresh)
     aiPredTimer = setInterval(function () {
-      if (state.session_key) loadAiPrediction(state.session_key);
+      if (state.session_key && !document.hidden) loadAiPrediction(state.session_key, false);
     }, 60000);
 
-    // Load immediately on session start
-    if (state.session_key) {
-      loadAiCommentary(state.session_key);
-      loadAiPrediction(state.session_key);
-      loadAiRaceControl(state.session_key);
-      loadAiStrategy(state.session_key);
-    }
+    // Load immediately on session start (with loading state)
+    if (state.session_key) loadAllAi(state.session_key);
   }
 
   function stopAiRefresh() {
@@ -98,59 +175,76 @@ var DashboardPageModel = (function () {
     aiPredTimer       = null;
   }
 
-  function loadAiCommentary(sessionKey) {
+  function loadAllAi(sessionKey) {
+    loadAiCommentary(sessionKey, true);
+    loadAiPrediction(sessionKey, true);
+    loadAiRaceControl(sessionKey, true);
+    loadAiStrategy(sessionKey, true);
+  }
+
+  /* ===== AI card state rendering ===== */
+  function aiLoading(sel, msg) {
+    $(sel).html('<span class="ai-state"><span class="spinner"></span> ' +
+      F1Utils.escapeHtml(msg || "Generating…") + '</span>');
+  }
+  function aiContent(sel, text) {
+    $(sel).html($('<p class="muted">').css({ margin: 0, lineHeight: 1.6 }).text(text));
+  }
+  function aiEmpty(sel, msg) {
+    $(sel).html('<span class="ai-state">' + F1Utils.escapeHtml(msg) + '</span>');
+  }
+  function aiError(sel, retryFn) {
+    var $box = $('<span class="ai-state is-error">').text("⚠ Couldn't load this right now. ");
+    $box.append($('<button class="retry-btn" type="button">').text("Retry").on("click", retryFn));
+    $(sel).empty().append($box);
+  }
+
+  // showLoading=true on first load / manual retry; false for silent interval refresh.
+  function loadAiCommentary(sessionKey, showLoading) {
+    if (showLoading) aiLoading("#aiCommentaryText", "Generating commentary…");
     F1API.aiCommentator(sessionKey)
       .done(function (res) {
-        if (res && res.commentary) {
-          $("#aiCommentaryText").text(res.commentary);
-          $("#aiCommentaryCard").show();
-        }
+        if (res && res.commentary) aiContent("#aiCommentaryText", res.commentary);
+        else if (showLoading)      aiEmpty("#aiCommentaryText", "No commentary yet — waiting for on-track action.");
       })
       .fail(function () {
-        $("#aiCommentaryText").text("Commentary unavailable.");
-        $("#aiCommentaryCard").show();
+        if (showLoading) aiError("#aiCommentaryText", function () { loadAiCommentary(state.session_key, true); });
       });
   }
 
-  function loadAiRaceControl(sessionKey) {
+  function loadAiRaceControl(sessionKey, showLoading) {
+    if (showLoading) aiLoading("#aiRCText", "Summarising stewards' messages…");
     F1API.aiRaceControlExplain(sessionKey)
       .done(function (res) {
-        if (res && res.explanation) {
-          $("#aiRCText").text(res.explanation);
-          $("#aiRCCard").show();
-        }
+        if (res && res.explanation) aiContent("#aiRCText", res.explanation);
+        else if (showLoading)       aiEmpty("#aiRCText", "No race control messages yet.");
       })
       .fail(function () {
-        $("#aiRCText").text("Stewards summary unavailable.");
-        $("#aiRCCard").show();
+        if (showLoading) aiError("#aiRCText", function () { loadAiRaceControl(state.session_key, true); });
       });
   }
 
-  function loadAiPrediction(sessionKey) {
+  function loadAiPrediction(sessionKey, showLoading) {
+    if (showLoading) aiLoading("#aiPredText", "Predicting the finish…");
     F1API.aiPerformance(sessionKey)
       .done(function (res) {
-        if (res && res.prediction) {
-          $("#aiPredText").text(res.prediction);
-          $("#aiPredCard").show();
-        }
+        if (res && res.prediction) aiContent("#aiPredText", res.prediction);
+        else if (showLoading)      aiEmpty("#aiPredText", "Not enough data to predict yet.");
       })
       .fail(function () {
-        $("#aiPredText").text("Prediction unavailable.");
-        $("#aiPredCard").show();
+        if (showLoading) aiError("#aiPredText", function () { loadAiPrediction(state.session_key, true); });
       });
   }
 
-  function loadAiStrategy(sessionKey) {
+  function loadAiStrategy(sessionKey, showLoading) {
+    if (showLoading) aiLoading("#aiStrategyText", "Analysing tyre strategy…");
     F1API.aiTyreStrategy(sessionKey)
       .done(function (res) {
-        if (res && res.analysis) {
-          $("#aiStrategyText").text(res.analysis);
-          $("#aiStrategyCard").show();
-        }
+        if (res && res.analysis) aiContent("#aiStrategyText", res.analysis);
+        else if (showLoading)    aiEmpty("#aiStrategyText", "No strategy data yet.");
       })
       .fail(function () {
-        $("#aiStrategyText").text("Strategy analysis unavailable.");
-        $("#aiStrategyCard").show();
+        if (showLoading) aiError("#aiStrategyText", function () { loadAiStrategy(state.session_key, true); });
       });
   }
 
@@ -166,12 +260,7 @@ var DashboardPageModel = (function () {
     });
 
     $("#aiRefreshBtn").on("click", function () {
-      if (state.session_key) {
-        loadAiCommentary(state.session_key);
-        loadAiPrediction(state.session_key);
-        loadAiRaceControl(state.session_key);
-        loadAiStrategy(state.session_key);
-      }
+      if (state.session_key) loadAllAi(state.session_key);
     });
   }
 
@@ -211,6 +300,16 @@ var DashboardPageModel = (function () {
       }
     });
 
+    // When the tab comes back to the foreground, refresh right away instead of
+    // waiting for the next interval tick.
+    document.addEventListener("visibilitychange", function () {
+      if (!document.hidden && state.session_key) {
+        tickTower();
+        tickMap();
+        loadWeather(state.session_key);
+      }
+    });
+
     initAiTabs();
     loadMeetings(false);
     startWeatherRefresh();
@@ -233,17 +332,13 @@ var DashboardPageModel = (function () {
 
         $("#meetingSelect").append('<option value="">Select race</option>');
         for (var i = 0; i < meetings.length; i++) {
-          var m     = meetings[i]; // PHP camelCase: m.key, m.name, m.dateStart
-          var label = m.name || m.officialName || ("Meeting " + m.key);
-          var d     = m.dateStart ? new Date(m.dateStart) : null;
-          if (d && !isNaN(d)) {
-            label += " · " + d.toLocaleDateString(undefined, { month: "short", day: "2-digit" });
-          }
-          $("#meetingSelect").append($("<option>").val(m.key).text(label));
+          var m = meetings[i]; // PHP camelCase: m.key, m.name, m.dateStart
+          $("#meetingSelect").append($("<option>").val(m.key).text(F1Utils.formatMeetingLabel(m)));
         }
 
+        var latest = F1Data.pickLatestStarted(meetings);
         var picked = (force || !state.meeting_key)
-          ? pickLatestStarted(meetings)
+          ? (latest ? latest.key : null)
           : state.meeting_key;
 
         if (!picked) picked = meetings[meetings.length - 1].key;
@@ -253,16 +348,6 @@ var DashboardPageModel = (function () {
         loadSessionsForMeeting(picked, false);
       })
       .fail(function () { $("#meetingSelect").prop("disabled", false); });
-  }
-
-  function pickLatestStarted(meetings) {
-    var now     = Date.now();
-    var started = meetings.filter(function (m) {
-      var t = Date.parse(m.dateStart);
-      return !isNaN(t) && t <= now;
-    });
-    if (!started.length) return null;
-    return started[started.length - 1].key;
   }
 
   /* ===== Sessions ===== */
@@ -283,14 +368,8 @@ var DashboardPageModel = (function () {
 
         $("#sessionSelect").append('<option value="">Select session</option>');
         for (var i = 0; i < sessions.length; i++) {
-          var s     = sessions[i]; // PHP camelCase: s.key, s.name, s.dateStart
-          var label = s.name || ("Session " + s.key);
-          var d     = s.dateStart ? new Date(s.dateStart) : null;
-          if (d && !isNaN(d)) {
-            label += " · " + d.toLocaleDateString(undefined, { weekday: "short" }) + " " +
-              d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
-          }
-          $("#sessionSelect").append($("<option>").val(s.key).text(label));
+          var s = sessions[i]; // PHP camelCase: s.key, s.name, s.dateStart
+          $("#sessionSelect").append($("<option>").val(s.key).text(F1Utils.formatSessionLabel(s)));
         }
 
         var picked = (forcePick || !state.session_key)

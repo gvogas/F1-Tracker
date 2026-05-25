@@ -97,8 +97,8 @@ class HuggingFaceService
 
             if ($status === 429) {
                 if ($attempt + 1 >= $maxTries) break;
-                $wait = isset($headers['retry-after']) ? (int) $headers['retry-after'] : 30;
-                sleep(min($wait, 60));
+                $wait = isset($headers['retry-after']) ? (int) $headers['retry-after'] : 15;
+                sleep(min($wait, 20)); // cap blocking — AI is best-effort + cached
                 continue;
             }
 
@@ -106,8 +106,8 @@ class HuggingFaceService
                 if ($attempt + 1 >= $maxTries) break;
                 // HuggingFace includes estimated_time in the body for model-loading 503s
                 $info = json_decode($body, true);
-                $wait = isset($info['estimated_time']) ? (int) ceil((float) $info['estimated_time']) : 20;
-                sleep(min($wait, 60));
+                $wait = isset($info['estimated_time']) ? (int) ceil((float) $info['estimated_time']) : 15;
+                sleep(min($wait, 20));
                 continue;
             }
 

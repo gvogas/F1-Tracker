@@ -2,9 +2,7 @@ var HeaderModel = {
 
   createHeader: function () {
 
-    var prefs = (typeof UserPrefsModel !== "undefined" && UserPrefsModel.load)
-      ? UserPrefsModel.load()
-      : {};
+    var prefs = F1Utils.getPrefs();
 
     // root
     var header = $("<header>").addClass("site-header");
@@ -109,15 +107,9 @@ var HeaderModel = {
   },
 
   refreshFavText: function () {
-    var prefs = (typeof UserPrefsModel !== "undefined" && UserPrefsModel.load)
-      ? UserPrefsModel.load()
-      : {};
+    var prefs = F1Utils.getPrefs();
 
-    var favText = (prefs.favoriteDriver || prefs.favoriteTeam)
-      ? ("Fav: " + [prefs.favoriteDriver, prefs.favoriteTeam].filter(Boolean).join(" · "))
-      : "No favorites set";
-
-    $("#headerFavText").text(favText);
+    $("#headerFavText").text(HeaderModel.buildFavText(prefs));
 
     var headshot = (prefs.favoriteDriverHeadshot || "").trim();
     if (headshot && !/^https?:\/\//i.test(headshot)) headshot = "";

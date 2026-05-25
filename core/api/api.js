@@ -4,17 +4,13 @@
  */
 var F1API = {
 
-    _get: function (path, params) {
+    // Shared request path: backoff guard, success/Retry-After tracking.
+    _xhr: function (opts) {
         if (F1Utils.isBackingOff()) {
             return $.Deferred().reject({ status: 429 }).promise();
         }
-        var xhr = $.ajax({
-            url:      '/api/' + path,
-            method:   'GET',
-            dataType: 'json',
-            data:     params || {},
-            timeout:  15000
-        });
+        var xhr = $.ajax(opts);
+        xhr.done(function () { F1Utils.noteSuccess(); });
         xhr.fail(function (jqXhr) {
             var s = jqXhr && jqXhr.status;
             if (s === 429 || s === 503) {
@@ -25,11 +21,18 @@ var F1API = {
         return xhr;
     },
 
+    _get: function (path, params) {
+        return F1API._xhr({
+            url:      '/api/' + path,
+            method:   'GET',
+            dataType: 'json',
+            data:     params || {},
+            timeout:  15000
+        });
+    },
+
     _post: function (path, body) {
-        if (F1Utils.isBackingOff()) {
-            return $.Deferred().reject({ status: 429 }).promise();
-        }
-        var xhr = $.ajax({
+        return F1API._xhr({
             url:         '/api/' + path,
             method:      'POST',
             dataType:    'json',
@@ -37,14 +40,6 @@ var F1API = {
             data:        JSON.stringify(body || {}),
             timeout:     30000
         });
-        xhr.fail(function (jqXhr) {
-            var s = jqXhr && jqXhr.status;
-            if (s === 429 || s === 503) {
-                var ra = parseInt((jqXhr.getResponseHeader && jqXhr.getResponseHeader('Retry-After')) || '0', 10);
-                F1Utils.setBackoff(ra > 0 ? ra * 1000 : 8000);
-            }
-        });
-        return xhr;
     },
 
     /* ===== Data endpoints (GET) ===== */
@@ -79,6 +74,14 @@ var F1API = {
 
     raceControl: function (params) {
         return F1API._get('race-control', params);
+    },
+
+    location: function (params) {
+        return F1API._get('location', params);
+    },
+
+    trackOutline: function (params) {
+        return F1API._get('track-outline', params);
     },
 
     /* ===== AI endpoints (POST) ===== */

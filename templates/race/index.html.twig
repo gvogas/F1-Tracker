@@ -14,31 +14,54 @@
 </div>
 
 <!-- Weather bar -->
-<div class="wxbar" id="weatherBar">
-  <div class="wxchip" id="wxTrc">
+<div class="wxbar" id="weatherBar" aria-label="Track conditions">
+  <div class="wxchip" id="wxTrc" title="Track temperature (°C)">
     <div class="wxvalue">--</div>
-    <div class="wxlabel">TRC</div>
+    <div class="wxlabel">Track</div>
   </div>
-  <div class="wxchip" id="wxAir">
+  <div class="wxchip" id="wxAir" title="Air temperature (°C)">
     <div class="wxvalue">--</div>
-    <div class="wxlabel">AIR</div>
+    <div class="wxlabel">Air</div>
   </div>
-  <div class="wxchip" id="wxHum">
+  <div class="wxchip" id="wxHum" title="Relative humidity (%)">
     <div class="wxvalue">--</div>
-    <div class="wxlabel">HUM</div>
+    <div class="wxlabel">Humidity</div>
   </div>
-  <div class="wxchip wxicon" id="wxRain">
+  <div class="wxchip wxicon" id="wxRain" title="Rainfall">
     <i class="fa-solid fa-cloud"></i>
-    <div class="wxlabel">RAIN</div>
+    <div class="wxlabel">Rain</div>
   </div>
-  <div class="wxchip wxicon" id="wxWind">
+  <div class="wxchip wxicon" id="wxWind" title="Wind direction and speed">
     <div class="wxvalue">--</div>
-    <div class="wxlabel">-- m/s</div>
+    <div class="wxlabel">Wind</div>
   </div>
 </div>
 
 <main>
-  <section class="tower" id="tower"></section>
+  <div class="dash-body">
+    <section class="tower-wrap">
+      <div class="tower-legend" aria-hidden="true">
+        <div class="lg-pos" title="Position">POS</div>
+        <div class="lg-code" title="Driver">Driver</div>
+        <div class="lg-drs" title="Drag Reduction System">DRS</div>
+        <div class="lg-tyre" title="Tyre compound">Tyre</div>
+        <div class="lg-lap" title="Current lap · pit stops">Lap·Pit</div>
+        <div class="lg-gap" title="Gap to leader · interval to car ahead">Gap·Int</div>
+        <div class="lg-last" title="Last lap · best lap">Last·Best</div>
+        <div class="lg-sectors" title="Sector 1 · 2 · 3">Sectors</div>
+      </div>
+      <section class="tower" id="tower"></section>
+    </section>
+
+    <aside class="track-map-wrap">
+      <div class="track-map-head">
+        <span class="track-map-title">Track Map</span>
+        <span class="track-map-sub muted" id="mapStatus"></span>
+      </div>
+      <canvas class="track-map" id="trackMap" width="320" height="320"></canvas>
+      <div class="track-map-hint">Replay car positions · OpenF1</div>
+    </aside>
+  </div>
 
   <!-- Strategy Analysis for replay -->
   <details class="card" id="aiStrategyCard" style="margin-top:1rem;display:none;">
@@ -57,5 +80,6 @@
 <script src="/core/f1/towerUI.js"></script>
 <script src="/core/f1/f1.ui.js"></script>
 <script src="/core/f1/towerAdapter.js"></script>
+<script src="/core/f1/trackMap.js"></script>
 <script src="/features/race/racePage.js"></script>
 {% endblock %}

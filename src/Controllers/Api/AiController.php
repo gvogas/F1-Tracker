@@ -12,17 +12,19 @@ use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
 use Throwable;
 
-class AiController
+class AiController extends ApiController
 {
     private const MISTRAL  = 'mistralai/Mistral-7B-Instruct-v0.3';
     private const BART     = 'facebook/bart-large-cnn';
     private const FLAN_T5  = 'google/flan-t5-base';
 
     public function __construct(
-        private readonly OpenF1Service      $openF1,
-        private readonly CacheService       $cache,
+        OpenF1Service $openF1,
+        CacheService  $cache,
         private readonly HuggingFaceService $hf,
-    ) {}
+    ) {
+        parent::__construct($openF1, $cache);
+    }
 
     // ─── Goal 6: AI Race Commentator ─────────────────────────────────────────
 
@@ -33,9 +35,9 @@ class AiController
             return $this->error($response, 'session_key is required', 400);
         }
 
-        try {
+        return $this->cachedAi($response, 'ai_commentator', $sessionKey, 30, function () use ($sessionKey): array {
             $tower   = $this->getTowerSnapshot($sessionKey);
-            $rcMsgs  = $this->openF1->get('race_control', ['session_key' => $sessionKey]);
+            $rcMsgs  = $this->fetchCached('race_control', ['session_key' => $sessionKey], 30);
             $lastMsg = end($rcMsgs);
             $rcText  = $lastMsg ? ($lastMsg['message'] ?? '') : 'No race control messages.';
 
@@ -45,11 +47,8 @@ class AiController
                 . $this->towerToText($tower)
                 . "\n\nLatest race control: {$rcText}\n\nCommentary:";
 
-            $commentary = $this->hf->generate(self::MISTRAL, $prompt, 200);
-            return $this->json($response, ['commentary' => $commentary]);
-        } catch (Throwable $e) {
-            return $this->error($response, $e->getMessage(), 502);
-        }
+            return ['commentary' => $this->hf->generate(self::MISTRAL, $prompt, 200)];
+        });
     }
 
     // ─── Goal 7: Tyre Strategy Analyser ──────────────────────────────────────
@@ -61,13 +60,12 @@ class AiController
             return $this->error($response, 'session_key is required', 400);
         }
 
-        try {
-            $stints  = $this->openF1->get('stints', ['session_key' => $sessionKey]);
-            $pits    = $this->openF1->get('pit',    ['session_key' => $sessionKey]);
-            $rawDrv  = $this->cachedDrivers($sessionKey);
-            $drivers = F1Helper::normalizeDrivers($rawDrv);
+        return $this->cachedAi($response, 'ai_tyre_strategy', $sessionKey, 120, function () use ($sessionKey): array {
+            $stints  = $this->fetchCached('stints',  ['session_key' => $sessionKey], 60);
+            $pits    = $this->fetchCached('pit',     ['session_key' => $sessionKey], 60);
+            $rawDrv  = $this->fetchCached('drivers', ['session_key' => $sessionKey], 3600);
             $drvMap  = [];
-            foreach ($drivers as $d) {
+            foreach (F1Helper::normalizeDrivers($rawDrv) as $d) {
                 $drvMap[$d->number] = $d->acronym;
             }
 
@@ -76,11 +74,8 @@ class AiController
                 . "which driver used the best strategy and which lost the most time. Be concise (2-3 sentences).\n\n"
                 . "Stint data:\n{$stratText}\n\nStrategy analysis:";
 
-            $analysis = $this->hf->generate(self::MISTRAL, $prompt, 250);
-            return $this->json($response, ['analysis' => $analysis]);
-        } catch (Throwable $e) {
-            return $this->error($response, $e->getMessage(), 502);
-        }
+            return ['analysis' => $this->hf->generate(self::MISTRAL, $prompt, 250)];
+        });
     }
 
     // ─── Goal 8: Race Control Explainer ──────────────────────────────────────
@@ -92,11 +87,11 @@ class AiController
             return $this->error($response, 'session_key is required', 400);
         }
 
-        try {
-            $messages = $this->openF1->get('race_control', ['session_key' => $sessionKey]);
+        return $this->cachedAi($response, 'ai_race_control', $sessionKey, 60, function () use ($sessionKey): array {
+            $messages = $this->fetchCached('race_control', ['session_key' => $sessionKey], 30);
 
             if (empty($messages)) {
-                return $this->json($response, ['explanation' => 'No race control messages yet.']);
+                return ['explanation' => 'No race control messages yet.'];
             }
 
             $text = implode('. ', array_map(
@@ -104,11 +99,8 @@ class AiController
                 $messages
             ));
 
-            $explanation = $this->hf->summarise(self::BART, $text, 150);
-            return $this->json($response, ['explanation' => $explanation]);
-        } catch (Throwable $e) {
-            return $this->error($response, $e->getMessage(), 502);
-        }
+            return ['explanation' => $this->hf->summarise(self::BART, $text, 150)];
+        });
     }
 
     // ─── Goal 9: Performance Analysis & Race Prediction ──────────────────────
@@ -120,12 +112,11 @@ class AiController
             return $this->error($response, 'session_key is required', 400);
         }
 
-        try {
+        return $this->cachedAi($response, 'ai_performance', $sessionKey, 60, function () use ($sessionKey): array {
             $tower   = $this->getTowerSnapshot($sessionKey);
-            $rawDrv  = $this->cachedDrivers($sessionKey);
-            $drivers = F1Helper::normalizeDrivers($rawDrv);
+            $rawDrv  = $this->fetchCached('drivers', ['session_key' => $sessionKey], 3600);
             $drvMap  = [];
-            foreach ($drivers as $d) {
+            foreach (F1Helper::normalizeDrivers($rawDrv) as $d) {
                 $drvMap[$d->number] = $d->acronym;
             }
 
@@ -139,20 +130,40 @@ class AiController
                 );
             }, $tower);
 
-            $input  = "Given this F1 race data, predict the likely final finishing order and explain the key factors: "
+            $input = "Given this F1 race data, predict the likely final finishing order and explain the key factors: "
                 . implode('; ', $paceLines);
 
-            $result = $this->hf->text2text(self::FLAN_T5, $input);
-            return $this->json($response, [
-                'prediction' => $result,
+            return [
+                'prediction' => $this->hf->text2text(self::FLAN_T5, $input),
                 'analysis'   => 'Based on current pace, gap trends, and tyre strategy.',
-            ]);
-        } catch (Throwable $e) {
-            return $this->error($response, $e->getMessage(), 502);
-        }
+            ];
+        });
     }
 
     // ─── Helpers ──────────────────────────────────────────────────────────────
+
+    /**
+     * Cache-or-generate wrapper shared by the four AI endpoints: serve a cached
+     * result, else run $produce, cache it, and return JSON — mapping failures to 502.
+     */
+    private function cachedAi(Response $response, string $feature, int $sessionKey, int $ttl, callable $produce): Response
+    {
+        $cacheKey = $this->cache->key($feature, ['session_key' => $sessionKey]);
+        $hit      = $this->cache->get($cacheKey);
+        if ($hit !== null) {
+            return $this->json($response, $hit);
+        }
+
+        try {
+            $out = $produce();
+            $this->cache->set($cacheKey, $out, $ttl);
+            return $this->json($response, $out);
+        } catch (Throwable $e) {
+            // Log the detail server-side; don't leak upstream/error bodies to the client.
+            error_log("AI endpoint '{$feature}' failed: " . $e->getMessage());
+            return $this->error($response, 'AI service temporarily unavailable', 502);
+        }
+    }
 
     private function parseSessionKey(Request $request): int
     {
@@ -163,51 +174,42 @@ class AiController
         return (int) ($body['session_key'] ?? 0);
     }
 
-    private function json(Response $response, mixed $data): Response
-    {
-        $response->getBody()->write(json_encode($data, JSON_UNESCAPED_UNICODE));
-        return $response;
-    }
-
-    private function error(Response $response, string $message, int $status): Response
-    {
-        $response->getBody()->write(json_encode(['error' => $message], JSON_UNESCAPED_UNICODE));
-        return $response->withStatus($status);
-    }
-
+    /**
+     * Lightweight per-driver snapshot for AI prompts. Reuses the same cached
+     * streams the live tower writes, so AI polling adds no extra OpenF1 calls.
+     */
     private function getTowerSnapshot(int $sessionKey): array
     {
-        // Fetch position + intervals for a quick snapshot (no full tower build needed here)
-        $positions = $this->openF1->get('position',  ['session_key' => $sessionKey]);
-        $intervals = $this->openF1->get('intervals', ['session_key' => $sessionKey]);
-        $laps      = $this->openF1->get('laps',      ['session_key' => $sessionKey]);
-        $stints    = $this->cachedStints($sessionKey);
-        $pits      = $this->cachedPits($sessionKey);
-        $rawDrv    = $this->cachedDrivers($sessionKey);
+        $p         = ['session_key' => $sessionKey];
+        $positions = $this->fetchCached('position',  $p, 10);
+        $intervals = $this->fetchCached('intervals', $p, 10);
+        $laps      = $this->fetchCached('laps',      $p, 10);
+        $stints    = $this->fetchCached('stints',    $p, 60);
+        $pits      = $this->fetchCached('pit',       $p, 60);
+        $rawDrv    = $this->fetchCached('drivers',   $p, 3600);
 
-        $drivers = F1Helper::normalizeDrivers($rawDrv);
-        $drvMap  = [];
-        foreach ($drivers as $d) {
+        $drvMap = [];
+        foreach (F1Helper::normalizeDrivers($rawDrv) as $d) {
             $drvMap[$d->number] = $d->toArray();
         }
 
-        $latestPos = $this->latestByDriver($positions);
-        $latestInt = $this->latestByDriver($intervals);
-        $latestLap = $this->latestByDriver($laps);
+        $latestPos = F1Helper::latestByDriver($positions);
+        $latestInt = F1Helper::latestByDriver($intervals);
+        $latestLap = F1Helper::latestByDriver($laps);
 
         $stintsByDriver = [];
         foreach ($stints as $s) {
-            $stintsByDriver[(int)($s['driver_number'] ?? 0)][] = $s;
+            $stintsByDriver[(int) ($s['driver_number'] ?? 0)][] = $s;
         }
         $pitsByDriver = [];
-        foreach ($pits as $p) {
-            $pitsByDriver[(int)($p['driver_number'] ?? 0)][] = $p;
+        foreach ($pits as $pit) {
+            $pitsByDriver[(int) ($pit['driver_number'] ?? 0)][] = $pit;
         }
 
         $rows = [];
         foreach ($latestPos as $num => $pos) {
-            $intData = $latestInt[$num] ?? [];
-            $lapData = $latestLap[$num] ?? [];
+            $intData   = $latestInt[$num] ?? [];
+            $lapData   = $latestLap[$num] ?? [];
             $drvStints = $stintsByDriver[$num] ?? [];
             $lastStint = end($drvStints) ?: [];
 
@@ -258,42 +260,10 @@ class AiController
         $lines = [];
         foreach ($byDriver as $num => $stintList) {
             $acronym = $drvMap[$num] ?? "#{$num}";
-            $pits    = $pitCount[$num] ?? 0;
-            $lines[] = "{$acronym}: " . implode(' → ', $stintList) . " ({$pits} stops)";
+            $stops   = $pitCount[$num] ?? 0;
+            $lines[] = "{$acronym}: " . implode(' → ', $stintList) . " ({$stops} stops)";
         }
 
         return implode("\n", $lines);
     }
-
-    private function latestByDriver(array $items): array
-    {
-        $latest = [];
-        foreach ($items as $item) {
-            $num  = (int) ($item['driver_number'] ?? 0);
-            $date = (string) ($item['date'] ?? '');
-            if (!isset($latest[$num]) || $date > (string) ($latest[$num]['date'] ?? '')) {
-                $latest[$num] = $item;
-            }
-        }
-        return $latest;
-    }
-
-    private function cachedDrivers(int $sessionKey): array
-    {
-        $cKey = $this->cache->key('drivers', ['session_key' => $sessionKey]);
-        return $this->cache->get($cKey) ?? $this->openF1->get('drivers', ['session_key' => $sessionKey]);
-    }
-
-    private function cachedStints(int $sessionKey): array
-    {
-        $cKey = $this->cache->key('stints', ['session_key' => $sessionKey]);
-        return $this->cache->get($cKey) ?? $this->openF1->get('stints', ['session_key' => $sessionKey]);
-    }
-
-    private function cachedPits(int $sessionKey): array
-    {
-        $cKey = $this->cache->key('pits', ['session_key' => $sessionKey]);
-        return $this->cache->get($cKey) ?? $this->openF1->get('pit', ['session_key' => $sessionKey]);
-    }
-
 }

@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Controllers\Api\AiController;
 use App\Controllers\Api\DriversController;
 use App\Controllers\Api\LapsController;
+use App\Controllers\Api\LocationController;
 use App\Controllers\Api\MeetingsController;
 use App\Controllers\Api\RaceControlController;
 use App\Controllers\Api\ResultsController;
@@ -46,7 +47,7 @@ $container->set(OpenF1Service::class, function () {
 });
 
 $container->set(HuggingFaceService::class, function () {
-    $key = $_ENV['HF_API_KEY'] ?? '';
+    $key = $_ENV['HF_TOKEN'] ?? $_ENV['HF_API_KEY'] ?? '';
     return new HuggingFaceService($key);
 });
 
@@ -72,6 +73,7 @@ foreach ([
     WeatherController::class,
     LapsController::class,
     RaceControlController::class,
+    LocationController::class,
 ] as $class) {
     $container->set($class, function (Container $c) use ($class) {
         return new $class($c->get(OpenF1Service::class), $c->get(CacheService::class));
@@ -104,8 +106,9 @@ $errorMiddleware->setErrorHandler(HttpNotFoundException::class, function ($reque
     return $response->withHeader('Content-Type', 'application/json');
 });
 $errorMiddleware->setErrorHandler(RuntimeException::class, function ($request, $exception) use ($app) {
+    error_log('F1-Tracker upstream error: ' . $exception->getMessage());
     $response = $app->getResponseFactory()->createResponse(503);
-    $response->getBody()->write(json_encode(['error' => $exception->getMessage()]));
+    $response->getBody()->write(json_encode(['error' => 'Service temporarily unavailable']));
     return $response->withHeader('Content-Type', 'application/json');
 }, true);
 
@@ -131,6 +134,8 @@ $app->group('/api', function (RouteCollectorProxy $group) {
     $group->get('/tower',         [TowerController::class,       'index']);
     $group->get('/laps',          [LapsController::class,        'index']);
     $group->get('/race-control',  [RaceControlController::class, 'index']);
+    $group->get('/location',      [LocationController::class,    'index']);
+    $group->get('/track-outline', [LocationController::class,    'outline']);
 
     // AI endpoints (POST)
     $group->post('/ai/commentator',          [AiController::class, 'commentator']);
