@@ -10,9 +10,7 @@ var HomePageModel = {
     $("#statSeason").text(new Date().getFullYear());
 
     // Load user prefs (cookie)
-    var prefs = (typeof UserPrefsModel !== "undefined" && typeof UserPrefsModel.load === "function")
-      ? UserPrefsModel.load()
-      : {};
+    var prefs = F1Utils.getPrefs();
 
     // Update chip text
     var bits = [];

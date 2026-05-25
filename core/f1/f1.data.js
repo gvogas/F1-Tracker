@@ -8,19 +8,22 @@ var F1Data = {
      MEETINGS / SESSIONS
   ========================= */
 
+  // Latest meeting whose start time has passed, or null if none have. (list sorted asc by PHP)
+  pickLatestStarted: function (meetings) {
+    meetings = Array.isArray(meetings) ? meetings : [];
+    var now = Date.now();
+    var started = meetings.filter(function (m) {
+      var t = Date.parse(m.dateStart);
+      return !isNaN(t) && t <= now;
+    });
+    return started.length ? started[started.length - 1] : null;
+  },
+
   getLatestMeeting: function (year) {
     return F1API.meetings({ year: year }).then(function (meetings) {
       meetings = Array.isArray(meetings) ? meetings : [];
       if (!meetings.length) throw new Error("No meetings");
-
-      var now     = Date.now();
-      var started = meetings.filter(function (m) {
-        var t = Date.parse(m.dateStart);
-        return !isNaN(t) && t <= now;
-      });
-
-      var list = started.length ? started : meetings;
-      return list[list.length - 1]; // already sorted asc by PHP
+      return F1Data.pickLatestStarted(meetings) || meetings[meetings.length - 1];
     });
   },
 

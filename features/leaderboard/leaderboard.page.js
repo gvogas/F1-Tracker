@@ -35,11 +35,7 @@ var LeaderboardPageModel = (function () {
   }
 
   function showSkeleton() {
-    var html = "";
-    for (var i = 0; i < 5; i++) {
-      html += '<tr><td colspan="5"><div class="skel" style="height:36px;border-radius:8px;margin:4px 0"></div></td></tr>';
-    }
-    $("#driversBody").html(html);
+    $("#driversBody").html(F1Utils.buildSkeleton(5, "row"));
   }
 
   /* ===== Meetings ===== */
@@ -61,7 +57,7 @@ var LeaderboardPageModel = (function () {
 
         for (var i = 0; i < meetings.length; i++) {
           var m = meetings[i]; // PHP camelCase: m.key, m.name, m.dateStart
-          $("#meetingSelect").append($("<option>").val(String(m.key)).text(meetingLabel(m)));
+          $("#meetingSelect").append($("<option>").val(String(m.key)).text(F1Utils.formatMeetingLabel(m)));
         }
 
         var prevStr = prev ? String(prev) : null;
@@ -76,13 +72,6 @@ var LeaderboardPageModel = (function () {
         loadSessionsForMeeting(pick, force);
       })
       .fail(function () { showMsg("Failed to load meetings. Check your connection."); });
-  }
-
-  function meetingLabel(m) {
-    var name = m.name || m.officialName || "Grand Prix";
-    var d    = m.dateStart ? new Date(m.dateStart) : null;
-    if (!d || isNaN(d.getTime())) return name;
-    return name + " · " + d.toLocaleDateString(undefined, { month: "short", day: "2-digit" });
   }
 
   /* ===== Sessions ===== */
@@ -112,7 +101,7 @@ var LeaderboardPageModel = (function () {
 
         for (var i = 0; i < sessions.length; i++) {
           var s = sessions[i]; // PHP camelCase: s.key, s.name, s.dateStart
-          $("#sessionSelect").append($("<option>").val(String(s.key)).text(sessionLabel(s)));
+          $("#sessionSelect").append($("<option>").val(String(s.key)).text(F1Utils.formatSessionLabel(s)));
         }
 
         var prevStr = prev ? String(prev) : null;
@@ -126,14 +115,6 @@ var LeaderboardPageModel = (function () {
         loadResults(pick);
       })
       .fail(function () { showMsg("Failed to load sessions. Check your connection."); });
-  }
-
-  function sessionLabel(s) {
-    var name = s.name || "Session";
-    var d    = s.dateStart ? new Date(s.dateStart) : null;
-    if (!d || isNaN(d.getTime())) return name;
-    return name + " · " + d.toLocaleDateString(undefined, { weekday: "short" }) + " " +
-      d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
   }
 
   /* ===== Results ===== */

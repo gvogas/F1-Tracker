@@ -12,9 +12,7 @@ var ProfilePageModel = {
   init: function () {
     if (typeof HeaderModel !== "undefined") HeaderModel.createHeader();
 
-    var prefs = (typeof UserPrefsModel !== "undefined" && UserPrefsModel.load)
-      ? UserPrefsModel.load()
-      : {};
+    var prefs = F1Utils.getPrefs();
 
     F1UI.setPill("#favoriteDriver", prefs.favoriteDriver || "", ProfilePageModel.DRIVER_PLACEHOLDER);
     F1UI.setPill("#favoriteTeam",   prefs.favoriteTeam   || "", ProfilePageModel.TEAM_PLACEHOLDER);
@@ -121,11 +119,7 @@ var ProfilePageModel = {
   },
 
   buildSkeleton: function (count) {
-    var html = "";
-    for (var i = 0; i < count; i++) {
-      html += '<div class="skel" style="height:56px;border-radius:12px;margin-bottom:8px"></div>';
-    }
-    return html;
+    return F1Utils.buildSkeleton(count, "item");
   }
 };
 

@@ -51,11 +51,7 @@ var RacesPage = (function () {
 
   function loadMeetings() {
     // Skeleton loading cards
-    var skels = "";
-    for (var s = 0; s < 6; s++) {
-      skels += '<div class="skel skel-row" style="height:90px;border-radius:16px"></div>';
-    }
-    $("#racesGrid").html('<div class="race-loading">' + skels + '</div>');
+    $("#racesGrid").html('<div class="race-loading">' + F1Utils.buildSkeleton(6, "card") + '</div>');
 
     F1API.meetings({ year: year })
       .done(function (meetings) {

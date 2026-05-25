@@ -5,23 +5,16 @@ declare(strict_types=1);
 namespace App\Controllers\Api;
 
 use App\Helpers\F1Helper;
-use App\Services\CacheService;
-use App\Services\OpenF1Service;
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
 use Throwable;
 
-class TowerController
+class TowerController extends ApiController
 {
     /** Assembled-tower output cache, matched to the ~5s frontend poll. */
     private const OUTPUT_TTL = 5;
     /** Raw live streams — slightly longer than the poll so rebuilds reuse warm data. */
     private const STREAM_TTL = 10;
-
-    public function __construct(
-        private readonly OpenF1Service $openF1,
-        private readonly CacheService  $cache,
-    ) {}
 
     public function index(Request $request, Response $response): Response
     {
@@ -29,8 +22,7 @@ class TowerController
         $sessionKey = (int) ($params['session_key'] ?? 0);
 
         if ($sessionKey === 0) {
-            $response->getBody()->write(json_encode(['error' => 'session_key is required']));
-            return $response->withStatus(400);
+            return $this->error($response, 'session_key is required', 400);
         }
 
         $date   = $params['date'] ?? null;
@@ -41,8 +33,7 @@ class TowerController
         $cached = $this->cache->get($cKey);
 
         if ($cached !== null) {
-            $response->getBody()->write(json_encode($cached, JSON_UNESCAPED_UNICODE));
-            return $response;
+            return $this->json($response, $cached);
         }
 
         $rows    = $this->buildRows($sessionKey, $date);
@@ -53,8 +44,7 @@ class TowerController
         if (empty($rows)) {
             $last = $this->cache->get($lastKey);
             if (!empty($last)) {
-                $response->getBody()->write(json_encode($last, JSON_UNESCAPED_UNICODE));
-                return $response;
+                return $this->json($response, $last);
             }
         } else {
             $this->cache->set($lastKey, $rows, 120);
@@ -62,8 +52,7 @@ class TowerController
 
         $this->cache->set($cKey, $rows, self::OUTPUT_TTL);
 
-        $response->getBody()->write(json_encode($rows, JSON_UNESCAPED_UNICODE));
-        return $response;
+        return $this->json($response, $rows);
     }
 
     /** @return array<int, array<string, mixed>> */
@@ -77,12 +66,14 @@ class TowerController
 
         // Position/intervals/laps are cached and shared with AiController.
         // Slow-changing streams (stints/pits/drivers) use longer TTLs.
-        $positions = $this->stream('position',  $posParams, self::STREAM_TTL);
-        $intervals = $this->stream('intervals', $posParams, self::STREAM_TTL);
-        $laps      = $this->stream('laps',      $posParams, self::STREAM_TTL);
-        $stints    = $this->stream('stints',    ['session_key' => $sessionKey], 60);
-        $pits      = $this->stream('pit',       ['session_key' => $sessionKey], 60);
-        $rawDrv    = $this->stream('drivers',   ['session_key' => $sessionKey], 3600);
+        // fetchCachedSafe degrades to the last cached value so one bad stream
+        // doesn't blank the whole board.
+        $positions = $this->fetchCachedSafe('position',  $posParams, self::STREAM_TTL);
+        $intervals = $this->fetchCachedSafe('intervals', $posParams, self::STREAM_TTL);
+        $laps      = $this->fetchCachedSafe('laps',      $posParams, self::STREAM_TTL);
+        $stints    = $this->fetchCachedSafe('stints',    ['session_key' => $sessionKey], 60);
+        $pits      = $this->fetchCachedSafe('pit',       ['session_key' => $sessionKey], 60);
+        $rawDrv    = $this->fetchCachedSafe('drivers',   ['session_key' => $sessionKey], 3600);
         $carData   = $this->fetchCarData($sessionKey, $date);
 
         if (empty($positions)) {
@@ -97,10 +88,10 @@ class TowerController
         }
 
         // Collapse each stream to latest entry per driver
-        $latestPos = $this->latestByDriver($positions, 'driver_number');
-        $latestInt = $this->latestByDriver($intervals, 'driver_number');
-        $latestLap = $this->latestByDriver($laps,      'driver_number');
-        $latestCar = $this->latestByDriver($carData,   'driver_number');
+        $latestPos = F1Helper::latestByDriver($positions);
+        $latestInt = F1Helper::latestByDriver($intervals);
+        $latestLap = F1Helper::latestByDriver($laps);
+        $latestCar = F1Helper::latestByDriver($carData);
 
         // Build per-driver stints (all, not just latest)
         $stintsByDriver = [];
@@ -150,36 +141,6 @@ class TowerController
         usort($rows, fn($a, $b) => $a['position'] <=> $b['position']);
 
         return $rows;
-    }
-
-    /** Collapse array to latest entry per driver using date field. */
-    private function latestByDriver(array $items, string $numField = 'driver_number'): array
-    {
-        $latest = [];
-        foreach ($items as $item) {
-            $num  = (int) ($item[$numField] ?? 0);
-            $date = (string) ($item['date'] ?? '');
-            if (!isset($latest[$num]) || $date > (string) ($latest[$num]['date'] ?? '')) {
-                $latest[$num] = $item;
-            }
-        }
-        return $latest;
-    }
-
-    /**
-     * Cache-backed stream fetch. Reuses the warm cache (shared with AiController)
-     * and degrades to the last cached value (or empty) instead of throwing.
-     *
-     * @return array<mixed>
-     */
-    private function stream(string $endpoint, array $params, int $ttl): array
-    {
-        $key = $this->cache->key($endpoint, $params);
-        try {
-            return $this->cache->remember($key, $ttl, fn() => $this->openF1->get($endpoint, $params));
-        } catch (Throwable $e) {
-            return $this->cache->get($key) ?? [];
-        }
     }
 
     /**

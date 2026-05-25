@@ -255,17 +255,13 @@ var DashboardPageModel = (function () {
 
         $("#meetingSelect").append('<option value="">Select race</option>');
         for (var i = 0; i < meetings.length; i++) {
-          var m     = meetings[i]; // PHP camelCase: m.key, m.name, m.dateStart
-          var label = m.name || m.officialName || ("Meeting " + m.key);
-          var d     = m.dateStart ? new Date(m.dateStart) : null;
-          if (d && !isNaN(d)) {
-            label += " · " + d.toLocaleDateString(undefined, { month: "short", day: "2-digit" });
-          }
-          $("#meetingSelect").append($("<option>").val(m.key).text(label));
+          var m = meetings[i]; // PHP camelCase: m.key, m.name, m.dateStart
+          $("#meetingSelect").append($("<option>").val(m.key).text(F1Utils.formatMeetingLabel(m)));
         }
 
+        var latest = F1Data.pickLatestStarted(meetings);
         var picked = (force || !state.meeting_key)
-          ? pickLatestStarted(meetings)
+          ? (latest ? latest.key : null)
           : state.meeting_key;
 
         if (!picked) picked = meetings[meetings.length - 1].key;
@@ -275,16 +271,6 @@ var DashboardPageModel = (function () {
         loadSessionsForMeeting(picked, false);
       })
       .fail(function () { $("#meetingSelect").prop("disabled", false); });
-  }
-
-  function pickLatestStarted(meetings) {
-    var now     = Date.now();
-    var started = meetings.filter(function (m) {
-      var t = Date.parse(m.dateStart);
-      return !isNaN(t) && t <= now;
-    });
-    if (!started.length) return null;
-    return started[started.length - 1].key;
   }
 
   /* ===== Sessions ===== */
@@ -305,14 +291,8 @@ var DashboardPageModel = (function () {
 
         $("#sessionSelect").append('<option value="">Select session</option>');
         for (var i = 0; i < sessions.length; i++) {
-          var s     = sessions[i]; // PHP camelCase: s.key, s.name, s.dateStart
-          var label = s.name || ("Session " + s.key);
-          var d     = s.dateStart ? new Date(s.dateStart) : null;
-          if (d && !isNaN(d)) {
-            label += " · " + d.toLocaleDateString(undefined, { weekday: "short" }) + " " +
-              d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
-          }
-          $("#sessionSelect").append($("<option>").val(s.key).text(label));
+          var s = sessions[i]; // PHP camelCase: s.key, s.name, s.dateStart
+          $("#sessionSelect").append($("<option>").val(s.key).text(F1Utils.formatSessionLabel(s)));
         }
 
         var picked = (forcePick || !state.session_key)

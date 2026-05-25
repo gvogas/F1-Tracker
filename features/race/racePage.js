@@ -125,7 +125,7 @@ var RacePage = (function () {
     var hh = Math.floor(total / 3600);
     var mm = Math.floor((total % 3600) / 60);
     var ss = total % 60;
-    $("#stopwatch").text(pad(hh) + ":" + pad(mm) + ":" + pad(ss));
+    $("#stopwatch").text(F1Utils.pad2(hh) + ":" + F1Utils.pad2(mm) + ":" + F1Utils.pad2(ss));
   }
 
   function tickReplay(isInitial) {
@@ -167,10 +167,6 @@ var RacePage = (function () {
     var p  = new URLSearchParams(window.location.search);
     var mk = Number(p.get("meeting_key"));
     return mk || null;
-  }
-
-  function pad(n) {
-    return (Number(n) < 10 ? "0" : "") + Number(n);
   }
 
   function showError(msg) {

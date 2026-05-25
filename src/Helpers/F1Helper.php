@@ -108,6 +108,25 @@ class F1Helper
         return WeatherModel::fromArray(end($raw));
     }
 
+    /**
+     * Collapse a time-series stream to the latest entry per driver (by `date`).
+     *
+     * @param  array<array<mixed>> $items
+     * @return array<int, array<mixed>>  keyed by driver number
+     */
+    public static function latestByDriver(array $items, string $numField = 'driver_number'): array
+    {
+        $latest = [];
+        foreach ($items as $item) {
+            $num  = (int) ($item[$numField] ?? 0);
+            $date = (string) ($item['date'] ?? '');
+            if (!isset($latest[$num]) || $date > (string) ($latest[$num]['date'] ?? '')) {
+                $latest[$num] = $item;
+            }
+        }
+        return $latest;
+    }
+
     // ─── Formatting helpers ───────────────────────────────────────────────────
 
     /** Format gap/interval value for timing tower display. */

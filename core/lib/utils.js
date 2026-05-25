@@ -70,6 +70,45 @@ var F1Utils = {
     return d.promise();
   },
 
+  /* ===== Preferences ===== */
+  getPrefs: function () {
+    if (typeof UserPrefsModel !== "undefined" && UserPrefsModel.load) {
+      return UserPrefsModel.load();
+    }
+    return {};
+  },
+
+  /* ===== Dropdown label formatters (camelCase fields from PHP models) ===== */
+  formatMeetingLabel: function (m) {
+    var name = m.name || m.officialName || "Grand Prix";
+    var d    = m.dateStart ? new Date(m.dateStart) : null;
+    if (!d || isNaN(d.getTime())) return name;
+    return name + " · " + d.toLocaleDateString(undefined, { month: "short", day: "2-digit" });
+  },
+
+  formatSessionLabel: function (s) {
+    var name = s.name || "Session";
+    var d    = s.dateStart ? new Date(s.dateStart) : null;
+    if (!d || isNaN(d.getTime())) return name;
+    return name + " · " + d.toLocaleDateString(undefined, { weekday: "short" }) + " " +
+      d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+  },
+
+  /* ===== Skeleton-loading markup =====
+     type: "card" (race grid) | "row" (table) | "item" (list)
+  ===== */
+  buildSkeleton: function (count, type) {
+    var markup = {
+      card: '<div class="skel skel-row" style="height:90px;border-radius:16px"></div>',
+      row:  '<tr><td colspan="5"><div class="skel" style="height:36px;border-radius:8px;margin:4px 0"></div></td></tr>',
+      item: '<div class="skel" style="height:56px;border-radius:12px;margin-bottom:8px"></div>'
+    };
+    var cell = markup[type] || markup.item;
+    var html = "";
+    for (var i = 0; i < count; i++) html += cell;
+    return html;
+  },
+
   /* ===== Formatting helpers ===== */
   pad2: function (n) {
     n = Number(n) || 0;
