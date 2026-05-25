@@ -10,58 +10,85 @@ use Throwable;
 
 class LocationController extends ApiController
 {
-    /** Live car positions: only a recent window so we never pull a whole session. */
+    /**
+     * Car positions in a small recent window so we never pull a whole session.
+     * Live (no `date`) → last ~4s up to now. Replay (`date`) → ~4s up to that point.
+     */
     public function index(Request $request, Response $response): Response
     {
-        $sessionKey = (int) ($request->getQueryParams()['session_key'] ?? 0);
+        $params     = $request->getQueryParams();
+        $sessionKey = (int) ($params['session_key'] ?? 0);
         if ($sessionKey === 0) {
             return $this->error($response, 'session_key is required', 400);
         }
 
-        // Stable (window-less) key so rapid polls and multiple viewers share the cache.
-        $cKey = $this->cache->key('location', ['session_key' => $sessionKey]);
+        $date = $params['date'] ?? null;
+        // Live key is window-less so rapid polls/viewers share; replay keys by timestamp.
+        $cKey = $this->cache->key('location', array_filter([
+            'session_key' => $sessionKey,
+            'date'        => $date,
+        ]));
 
-        return $this->cachedJson($response, $cKey, 3, function () use ($sessionKey): array {
-            $from = gmdate('Y-m-d\TH:i:s', time() - 4) . 'Z';
-            try {
-                return $this->openF1->get('location', [
-                    'session_key' => $sessionKey,
-                    'date'        => '>=' . $from,
-                ]);
-            } catch (Throwable $e) {
-                return [];
-            }
-        });
+        return $this->cachedJson($response, $cKey, 3, fn(): array => $this->fetchWindow($sessionKey, $date));
     }
 
-    /** One driver's recent path, downsampled into an ordered outline of the circuit. */
+    /** @return array<mixed> */
+    private function fetchWindow(int $sessionKey, ?string $date): array
+    {
+        $anchor = ($date && ($t = strtotime($date)) !== false) ? $t : time();
+        $from   = gmdate('Y-m-d\TH:i:s', $anchor - 4) . 'Z';
+        $params = ['session_key' => $sessionKey, 'date' => '>=' . $from];
+        if ($date) {
+            $params['date'] = ['>=' . $from, '<=' . $date];
+        }
+
+        try {
+            return $this->openF1->get('location', $params);
+        } catch (Throwable $e) {
+            return [];
+        }
+    }
+
+    /**
+     * One driver's path, downsampled into an ordered outline of the circuit.
+     * Live (no `date`) → last ~3 min up to now. Replay (`date`) → ~3 min centred
+     * on that point, so a finished session still yields a lap-shaped outline.
+     */
     public function outline(Request $request, Response $response): Response
     {
-        $sessionKey = (int) ($request->getQueryParams()['session_key'] ?? 0);
+        $params     = $request->getQueryParams();
+        $sessionKey = (int) ($params['session_key'] ?? 0);
         if ($sessionKey === 0) {
             return $this->error($response, 'session_key is required', 400);
         }
 
-        $cKey = $this->cache->key('track-outline', ['session_key' => $sessionKey]);
+        $date = $params['date'] ?? null;
+        $cKey = $this->cache->key('track-outline', array_filter([
+            'session_key' => $sessionKey,
+            'date'        => $date,
+        ]));
 
-        return $this->cachedJson($response, $cKey, 3600, fn(): array => $this->buildOutline($sessionKey));
+        return $this->cachedJson($response, $cKey, 3600, fn(): array => $this->buildOutline($sessionKey, $date));
     }
 
     /** @return array<int, array{x: float, y: float}> */
-    private function buildOutline(int $sessionKey): array
+    private function buildOutline(int $sessionKey, ?string $date): array
     {
         $driverNum = $this->pickDriverNumber($sessionKey);
         if ($driverNum === 0) {
             return [];
         }
 
-        $from = gmdate('Y-m-d\TH:i:s', time() - 120) . 'Z'; // ~one lap
+        $base = ['session_key' => $sessionKey, 'driver_number' => $driverNum];
+        if ($date && ($t = strtotime($date)) !== false) {
+            $base['date'] = ['>=' . gmdate('Y-m-d\TH:i:s', $t - 90) . 'Z',
+                             '<=' . gmdate('Y-m-d\TH:i:s', $t + 90) . 'Z'];
+        } else {
+            $base['date'] = '>=' . gmdate('Y-m-d\TH:i:s', time() - 180) . 'Z';
+        }
+
         try {
-            $rows = $this->openF1->get('location', [
-                'session_key'   => $sessionKey,
-                'driver_number' => $driverNum,
-                'date'          => '>=' . $from,
-            ]);
+            $rows = $this->openF1->get('location', $base);
         } catch (Throwable $e) {
             return [];
         }

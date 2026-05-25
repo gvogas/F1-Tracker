@@ -3,7 +3,8 @@ var RacePage = (function () {
   var state = {
     meeting_key:   null,
     session_key:   null,
-    session_start: null // ISO string
+    session_start: null, // ISO string
+    driverInfo:    {}     // number -> { color, acronym, position }, fed to the track map
   };
 
   var mode          = "stopped";
@@ -11,10 +12,12 @@ var RacePage = (function () {
   var replayClockMs = 0;
   var replaySpeed   = 5; // 5× default
   var replayInFlight = false;
+  var mapInFlight    = false;
 
   /* ===== Init ===== */
   function init() {
     if (typeof HeaderModel !== "undefined") HeaderModel.createHeader();
+    if (typeof TrackMap !== "undefined") TrackMap.init("trackMap");
 
     state.meeting_key = getMeetingKeyFromUrl();
     if (!state.meeting_key) {
@@ -82,6 +85,9 @@ var RacePage = (function () {
 
   function onSessionChanged() {
     stopReplay();
+    if (typeof TrackMap !== "undefined") TrackMap.clear();
+    state.driverInfo = {};
+    $("#mapStatus").text("");
     if (!state.session_key) return;
 
     var $opt = $("#sessionSelect option:selected");
@@ -93,9 +99,55 @@ var RacePage = (function () {
 
     replayClockMs = state.session_start ? Date.parse(state.session_start) : Date.now();
     setStopwatch(0);
+    seedMap();
     tickReplay(true);
 
     loadAiStrategy(state.session_key);
+  }
+
+  /* ===== Track map ===== */
+  // number -> { color, acronym, position } for the track-map dots
+  function buildDriverInfo(rows) {
+    var map = {};
+    (Array.isArray(rows) ? rows : []).forEach(function (r) {
+      if (!r.driverNumber) return;
+      var d = r.driver || {};
+      map[r.driverNumber] = {
+        color:    d.teamColour || null,
+        acronym:  d.acronym || "",
+        position: r.position || 0
+      };
+    });
+    return map;
+  }
+
+  // One-time circuit outline anchored at the session start (server caches ~1h).
+  function seedMap() {
+    if (typeof TrackMap === "undefined" || !state.session_key) return;
+    var params = { session_key: state.session_key };
+    if (state.session_start) params.date = state.session_start;
+    F1API.trackOutline(params)
+      .done(function (points) {
+        if (Array.isArray(points) && points.length) TrackMap.seedTrack(points);
+      });
+  }
+
+  function updateMap(tIso) {
+    if (typeof TrackMap === "undefined" || !state.session_key || mapInFlight) return;
+    mapInFlight = true;
+    F1API.location({ session_key: state.session_key, date: tIso })
+      .done(function (rows) {
+        rows = Array.isArray(rows) ? rows : [];
+        TrackMap.update(rows, state.driverInfo);
+
+        var seen = {};
+        for (var i = 0; i < rows.length; i++) {
+          if (rows[i] && rows[i].driver_number) seen[rows[i].driver_number] = true;
+        }
+        var n = Object.keys(seen).length;
+        $("#mapStatus").text(n ? (n + " cars") : "");
+      })
+      .always(function () { mapInFlight = false; });
   }
 
   /* ===== Replay ===== */
@@ -144,11 +196,16 @@ var RacePage = (function () {
     F1API.tower({ session_key: state.session_key, date: tIso })
       .done(function (rows) {
         TowerUI.render(TowerAdapter.adaptRows(rows));
+        state.driverInfo = buildDriverInfo(rows);
       })
       .fail(function (xhr) {
         if (!isInitial) console.warn("replay tick failed", xhr && xhr.status);
       })
       .always(function () { replayInFlight = false; });
+
+    // Track map reflects the same replay timestamp (own guard so a slow
+    // request never stacks at high replay speed).
+    updateMap(tIso);
   }
 
   /* ===== AI Strategy ===== */
