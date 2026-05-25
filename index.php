@@ -46,7 +46,7 @@ $container->set(OpenF1Service::class, function () {
 });
 
 $container->set(HuggingFaceService::class, function () {
-    $key = $_ENV['HF_API_KEY'] ?? '';
+    $key = $_ENV['HF_TOKEN'] ?? $_ENV['HF_API_KEY'] ?? '';
     return new HuggingFaceService($key);
 });
 

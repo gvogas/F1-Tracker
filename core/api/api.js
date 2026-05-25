@@ -15,6 +15,7 @@ var F1API = {
             data:     params || {},
             timeout:  15000
         });
+        xhr.done(function () { F1Utils.noteSuccess(); });
         xhr.fail(function (jqXhr) {
             var s = jqXhr && jqXhr.status;
             if (s === 429 || s === 503) {
@@ -37,6 +38,7 @@ var F1API = {
             data:        JSON.stringify(body || {}),
             timeout:     30000
         });
+        xhr.done(function () { F1Utils.noteSuccess(); });
         xhr.fail(function (jqXhr) {
             var s = jqXhr && jqXhr.status;
             if (s === 429 || s === 503) {

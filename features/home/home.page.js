@@ -19,7 +19,11 @@ var HomePageModel = {
     if (prefs.favoriteDriver) bits.push("Driver: " + prefs.favoriteDriver);
     if (prefs.favoriteTeam) bits.push("Team: " + prefs.favoriteTeam);
 
-    $("#favChip").text(bits.length ? bits.join(" • ") : "Set your favorites in Profile");
+    $("#favChip").text(bits.length ? bits.join(" • ") : "Set your favourites in Profile");
+
+    // Personalised hero tiles
+    $("#statFavDriver").text(prefs.favoriteDriver || "—");
+    $("#statFavTeam").text(prefs.favoriteTeam || "—");
   }
 };
 

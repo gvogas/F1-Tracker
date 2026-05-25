@@ -83,6 +83,7 @@ var ProfilePageModel = {
 
     ProfilePageModel.repaintGrid();
     $("#profileMsg").text("Saved!").show();
+    if (F1Utils.toast) F1Utils.toast("Favourites saved");
     setTimeout(function () { $("#profileMsg").fadeOut(300); }, 1500);
   },
 
@@ -98,6 +99,7 @@ var ProfilePageModel = {
 
     ProfilePageModel.repaintGrid();
     $("#profileMsg").text("Cleared.").show();
+    if (F1Utils.toast) F1Utils.toast("Favourites cleared");
     setTimeout(function () { $("#profileMsg").fadeOut(300); }, 1500);
   },
 

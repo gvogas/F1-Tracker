@@ -35,9 +35,9 @@ var WeatherData = (function () {
   function renderToDashboard(w) {
     if (!w) return;
 
-    $("#wxTrc .wxvalue").text(w.trackC != null ? w.trackC : "--");
-    $("#wxAir .wxvalue").text(w.airC   != null ? w.airC   : "--");
-    $("#wxHum .wxvalue").text(w.humidityPct != null ? w.humidityPct : "--");
+    $("#wxTrc .wxvalue").text(w.trackC != null ? (w.trackC + "°") : "--");
+    $("#wxAir .wxvalue").text(w.airC   != null ? (w.airC   + "°") : "--");
+    $("#wxHum .wxvalue").text(w.humidityPct != null ? (w.humidityPct + "%") : "--");
 
     var rainIcon = $("#wxRain i");
     var rain = Number(w.rainfallMm || 0);

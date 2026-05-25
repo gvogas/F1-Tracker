@@ -42,6 +42,23 @@ class CacheService
         return $data['payload'];
     }
 
+    /**
+     * Return the cached value for $key, or run $producer, cache its result and return it.
+     *
+     * @param callable():array $producer
+     * @return array<mixed>
+     */
+    public function remember(string $key, int $ttl, callable $producer): array
+    {
+        $cached = $this->get($key);
+        if ($cached !== null) {
+            return $cached;
+        }
+        $value = $producer();
+        $this->set($key, $value, $ttl);
+        return $value;
+    }
+
     public function set(string $key, array $payload, int $ttl): void
     {
         $file = $this->filePath($key);

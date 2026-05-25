@@ -12,7 +12,7 @@ var DashboardPageModel = (function () {
   function startWeatherRefresh() {
     stopWeatherRefresh();
     weatherTimer = setInterval(function () {
-      if (state.session_key) loadWeather(state.session_key);
+      if (state.session_key && !document.hidden) loadWeather(state.session_key);
     }, 60000);
   }
 
@@ -22,26 +22,31 @@ var DashboardPageModel = (function () {
   }
 
   /* ===== Live tower polling ===== */
-  var towerTimer = null;
+  var towerTimer    = null;
+  var towerInFlight = false;
 
   function startTower() {
     stopTower();
     tickTower();
-    towerTimer = setInterval(tickTower, 2500);
+    towerTimer = setInterval(tickTower, 5000);
     setLiveIndicator(true);
   }
 
   function stopTower() {
     clearInterval(towerTimer);
     towerTimer = null;
+    towerInFlight = false;
     setLiveIndicator(false);
     $("#tower").empty();
     if (typeof TrackMap !== "undefined") TrackMap.clear();
   }
 
   function tickTower() {
-    if (!state.session_key) return;
+    // Skip while the tab is backgrounded or a request is already in flight —
+    // avoids piling up overlapping requests and hammering the API.
+    if (!state.session_key || document.hidden || towerInFlight) return;
 
+    towerInFlight = true;
     F1API.tower({ session_key: state.session_key })
       .done(function (rows) {
         TowerUI.render(TowerAdapter.adaptRows(rows));
@@ -52,7 +57,8 @@ var DashboardPageModel = (function () {
       })
       .fail(function (xhr) {
         if (xhr.status !== 429) console.warn("tower tick failed", xhr.status);
-      });
+      })
+      .always(function () { towerInFlight = false; });
   }
 
   /* ===== Live indicator ===== */
@@ -72,23 +78,18 @@ var DashboardPageModel = (function () {
   function startAiRefresh() {
     stopAiRefresh();
 
-    // Goal 6: commentary every 30s
+    // Goal 6: commentary every 30s (silent refresh — no spinner flash)
     aiCommentaryTimer = setInterval(function () {
-      if (state.session_key) loadAiCommentary(state.session_key);
+      if (state.session_key && !document.hidden) loadAiCommentary(state.session_key, false);
     }, 30000);
 
-    // Goal 9: prediction every 60s
+    // Goal 9: prediction every 60s (silent refresh)
     aiPredTimer = setInterval(function () {
-      if (state.session_key) loadAiPrediction(state.session_key);
+      if (state.session_key && !document.hidden) loadAiPrediction(state.session_key, false);
     }, 60000);
 
-    // Load immediately on session start
-    if (state.session_key) {
-      loadAiCommentary(state.session_key);
-      loadAiPrediction(state.session_key);
-      loadAiRaceControl(state.session_key);
-      loadAiStrategy(state.session_key);
-    }
+    // Load immediately on session start (with loading state)
+    if (state.session_key) loadAllAi(state.session_key);
   }
 
   function stopAiRefresh() {
@@ -98,59 +99,76 @@ var DashboardPageModel = (function () {
     aiPredTimer       = null;
   }
 
-  function loadAiCommentary(sessionKey) {
+  function loadAllAi(sessionKey) {
+    loadAiCommentary(sessionKey, true);
+    loadAiPrediction(sessionKey, true);
+    loadAiRaceControl(sessionKey, true);
+    loadAiStrategy(sessionKey, true);
+  }
+
+  /* ===== AI card state rendering ===== */
+  function aiLoading(sel, msg) {
+    $(sel).html('<span class="ai-state"><span class="spinner"></span> ' +
+      F1Utils.escapeHtml(msg || "Generating…") + '</span>');
+  }
+  function aiContent(sel, text) {
+    $(sel).html($('<p class="muted">').css({ margin: 0, lineHeight: 1.6 }).text(text));
+  }
+  function aiEmpty(sel, msg) {
+    $(sel).html('<span class="ai-state">' + F1Utils.escapeHtml(msg) + '</span>');
+  }
+  function aiError(sel, retryFn) {
+    var $box = $('<span class="ai-state is-error">').text("⚠ Couldn't load this right now. ");
+    $box.append($('<button class="retry-btn" type="button">').text("Retry").on("click", retryFn));
+    $(sel).empty().append($box);
+  }
+
+  // showLoading=true on first load / manual retry; false for silent interval refresh.
+  function loadAiCommentary(sessionKey, showLoading) {
+    if (showLoading) aiLoading("#aiCommentaryText", "Generating commentary…");
     F1API.aiCommentator(sessionKey)
       .done(function (res) {
-        if (res && res.commentary) {
-          $("#aiCommentaryText").text(res.commentary);
-          $("#aiCommentaryCard").show();
-        }
+        if (res && res.commentary) aiContent("#aiCommentaryText", res.commentary);
+        else if (showLoading)      aiEmpty("#aiCommentaryText", "No commentary yet — waiting for on-track action.");
       })
       .fail(function () {
-        $("#aiCommentaryText").text("Commentary unavailable.");
-        $("#aiCommentaryCard").show();
+        if (showLoading) aiError("#aiCommentaryText", function () { loadAiCommentary(state.session_key, true); });
       });
   }
 
-  function loadAiRaceControl(sessionKey) {
+  function loadAiRaceControl(sessionKey, showLoading) {
+    if (showLoading) aiLoading("#aiRCText", "Summarising stewards' messages…");
     F1API.aiRaceControlExplain(sessionKey)
       .done(function (res) {
-        if (res && res.explanation) {
-          $("#aiRCText").text(res.explanation);
-          $("#aiRCCard").show();
-        }
+        if (res && res.explanation) aiContent("#aiRCText", res.explanation);
+        else if (showLoading)       aiEmpty("#aiRCText", "No race control messages yet.");
       })
       .fail(function () {
-        $("#aiRCText").text("Stewards summary unavailable.");
-        $("#aiRCCard").show();
+        if (showLoading) aiError("#aiRCText", function () { loadAiRaceControl(state.session_key, true); });
       });
   }
 
-  function loadAiPrediction(sessionKey) {
+  function loadAiPrediction(sessionKey, showLoading) {
+    if (showLoading) aiLoading("#aiPredText", "Predicting the finish…");
     F1API.aiPerformance(sessionKey)
       .done(function (res) {
-        if (res && res.prediction) {
-          $("#aiPredText").text(res.prediction);
-          $("#aiPredCard").show();
-        }
+        if (res && res.prediction) aiContent("#aiPredText", res.prediction);
+        else if (showLoading)      aiEmpty("#aiPredText", "Not enough data to predict yet.");
       })
       .fail(function () {
-        $("#aiPredText").text("Prediction unavailable.");
-        $("#aiPredCard").show();
+        if (showLoading) aiError("#aiPredText", function () { loadAiPrediction(state.session_key, true); });
       });
   }
 
-  function loadAiStrategy(sessionKey) {
+  function loadAiStrategy(sessionKey, showLoading) {
+    if (showLoading) aiLoading("#aiStrategyText", "Analysing tyre strategy…");
     F1API.aiTyreStrategy(sessionKey)
       .done(function (res) {
-        if (res && res.analysis) {
-          $("#aiStrategyText").text(res.analysis);
-          $("#aiStrategyCard").show();
-        }
+        if (res && res.analysis) aiContent("#aiStrategyText", res.analysis);
+        else if (showLoading)    aiEmpty("#aiStrategyText", "No strategy data yet.");
       })
       .fail(function () {
-        $("#aiStrategyText").text("Strategy analysis unavailable.");
-        $("#aiStrategyCard").show();
+        if (showLoading) aiError("#aiStrategyText", function () { loadAiStrategy(state.session_key, true); });
       });
   }
 
@@ -166,12 +184,7 @@ var DashboardPageModel = (function () {
     });
 
     $("#aiRefreshBtn").on("click", function () {
-      if (state.session_key) {
-        loadAiCommentary(state.session_key);
-        loadAiPrediction(state.session_key);
-        loadAiRaceControl(state.session_key);
-        loadAiStrategy(state.session_key);
-      }
+      if (state.session_key) loadAllAi(state.session_key);
     });
   }
 
@@ -208,6 +221,15 @@ var DashboardPageModel = (function () {
         loadWeather(state.session_key);
         startTower();
         startAiRefresh();
+      }
+    });
+
+    // When the tab comes back to the foreground, refresh right away instead of
+    // waiting for the next interval tick.
+    document.addEventListener("visibilitychange", function () {
+      if (!document.hidden && state.session_key) {
+        tickTower();
+        loadWeather(state.session_key);
       }
     });
 

@@ -10,6 +10,7 @@ var RacePage = (function () {
   var replayTimer   = null;
   var replayClockMs = 0;
   var replaySpeed   = 5; // 5× default
+  var replayInFlight = false;
 
   /* ===== Init ===== */
   function init() {
@@ -134,15 +135,20 @@ var RacePage = (function () {
       setStopwatch(replayClockMs - Date.parse(state.session_start));
     }
 
+    // Don't stack requests if the backend is slower than the replay tick.
+    if (replayInFlight) return;
+
     var tIso = new Date(replayClockMs).toISOString();
 
+    replayInFlight = true;
     F1API.tower({ session_key: state.session_key, date: tIso })
       .done(function (rows) {
         TowerUI.render(TowerAdapter.adaptRows(rows));
       })
       .fail(function (xhr) {
         if (!isInitial) console.warn("replay tick failed", xhr && xhr.status);
-      });
+      })
+      .always(function () { replayInFlight = false; });
   }
 
   /* ===== AI Strategy ===== */

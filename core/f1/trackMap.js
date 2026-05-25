@@ -177,7 +177,7 @@ var TrackMap = (function () {
       var car = carPositions[nums[k]];
       var pos = toCanvas(car.x, car.y);
 
-      var hexColor = car.color ? ("#" + car.color) : "#00b4ff";
+      var hexColor = car.color ? ("#" + car.color) : "#e10600";
 
       // Glow
       ctx.beginPath();
@@ -225,7 +225,7 @@ var TrackMap = (function () {
   /* ===== Helpers ===== */
   function hexToRgba(hex, alpha) {
     hex = String(hex || "").replace("#", "");
-    if (hex.length !== 6) return "rgba(0,180,255," + alpha + ")";
+    if (hex.length !== 6) return "rgba(225,6,0," + alpha + ")";
     var r = parseInt(hex.substring(0, 2), 16);
     var g = parseInt(hex.substring(2, 4), 16);
     var b = parseInt(hex.substring(4, 6), 16);

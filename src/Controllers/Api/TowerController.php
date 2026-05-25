@@ -9,9 +9,15 @@ use App\Services\CacheService;
 use App\Services\OpenF1Service;
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
+use Throwable;
 
 class TowerController
 {
+    /** Assembled-tower output cache, matched to the ~5s frontend poll. */
+    private const OUTPUT_TTL = 5;
+    /** Raw live streams — slightly longer than the poll so rebuilds reuse warm data. */
+    private const STREAM_TTL = 10;
+
     public function __construct(
         private readonly OpenF1Service $openF1,
         private readonly CacheService  $cache,
@@ -39,29 +45,49 @@ class TowerController
             return $response;
         }
 
-        $posParams  = ['session_key' => $sessionKey];
-        $carParams  = ['session_key' => $sessionKey];
+        $rows    = $this->buildRows($sessionKey, $date);
+        $lastKey = $this->cache->key('tower_last', ['session_key' => $sessionKey]);
+
+        // Graceful degradation: an upstream hiccup can leave us with no rows.
+        // Serve the last good snapshot instead of blanking the tower.
+        if (empty($rows)) {
+            $last = $this->cache->get($lastKey);
+            if (!empty($last)) {
+                $response->getBody()->write(json_encode($last, JSON_UNESCAPED_UNICODE));
+                return $response;
+            }
+        } else {
+            $this->cache->set($lastKey, $rows, 120);
+        }
+
+        $this->cache->set($cKey, $rows, self::OUTPUT_TTL);
+
+        $response->getBody()->write(json_encode($rows, JSON_UNESCAPED_UNICODE));
+        return $response;
+    }
+
+    /** @return array<int, array<string, mixed>> */
+    private function buildRows(int $sessionKey, ?string $date): array
+    {
+        $posParams = ['session_key' => $sessionKey];
 
         if ($date) {
             $posParams['date'] = '<=' . $date;
-            // Last 2 seconds for car data to keep payload small
-            $fromDate          = date('Y-m-d\TH:i:s', strtotime($date) - 2) . 'Z';
-            $carParams['date'] = '>=' . $fromDate;
         }
 
-        // Fetch all required streams — stints/pits are slow-changing, use longer cache
-        $stintKey    = $this->cache->key('stints',   ['session_key' => $sessionKey]);
-        $pitKey      = $this->cache->key('pits',     ['session_key' => $sessionKey]);
-        $driverKey   = $this->cache->key('drivers',  ['session_key' => $sessionKey]);
+        // Position/intervals/laps are cached and shared with AiController.
+        // Slow-changing streams (stints/pits/drivers) use longer TTLs.
+        $positions = $this->stream('position',  $posParams, self::STREAM_TTL);
+        $intervals = $this->stream('intervals', $posParams, self::STREAM_TTL);
+        $laps      = $this->stream('laps',      $posParams, self::STREAM_TTL);
+        $stints    = $this->stream('stints',    ['session_key' => $sessionKey], 60);
+        $pits      = $this->stream('pit',       ['session_key' => $sessionKey], 60);
+        $rawDrv    = $this->stream('drivers',   ['session_key' => $sessionKey], 3600);
+        $carData   = $this->fetchCarData($sessionKey, $date);
 
-        $stints  = $this->cache->get($stintKey)  ?? $this->fetchAndCache('stints',   ['session_key' => $sessionKey], $stintKey,  60);
-        $pits    = $this->cache->get($pitKey)     ?? $this->fetchAndCache('pit',      ['session_key' => $sessionKey], $pitKey,    60);
-        $rawDrv  = $this->cache->get($driverKey)  ?? $this->fetchAndCache('drivers',  ['session_key' => $sessionKey], $driverKey, 3600);
-
-        $positions = $this->openF1->get('position',  $posParams);
-        $intervals = $this->openF1->get('intervals', $posParams);
-        $laps      = $this->openF1->get('laps',      $posParams);
-        $carData   = $this->openF1->get('car_data',  $carParams);
+        if (empty($positions)) {
+            return [];
+        }
 
         // Normalise drivers for lookup
         $drivers = F1Helper::normalizeDrivers($rawDrv);
@@ -123,10 +149,7 @@ class TowerController
 
         usort($rows, fn($a, $b) => $a['position'] <=> $b['position']);
 
-        $this->cache->set($cKey, $rows, 5);
-
-        $response->getBody()->write(json_encode($rows, JSON_UNESCAPED_UNICODE));
-        return $response;
+        return $rows;
     }
 
     /** Collapse array to latest entry per driver using date field. */
@@ -143,10 +166,41 @@ class TowerController
         return $latest;
     }
 
-    private function fetchAndCache(string $endpoint, array $params, string $cKey, int $ttl): array
+    /**
+     * Cache-backed stream fetch. Reuses the warm cache (shared with AiController)
+     * and degrades to the last cached value (or empty) instead of throwing.
+     *
+     * @return array<mixed>
+     */
+    private function stream(string $endpoint, array $params, int $ttl): array
     {
-        $data = $this->openF1->get($endpoint, $params);
-        $this->cache->set($cKey, $data, $ttl);
-        return $data;
+        $key = $this->cache->key($endpoint, $params);
+        try {
+            return $this->cache->remember($key, $ttl, fn() => $this->openF1->get($endpoint, $params));
+        } catch (Throwable $e) {
+            return $this->cache->get($key) ?? [];
+        }
+    }
+
+    /**
+     * Telemetry is huge — only ever pull a recent window so we never fetch a
+     * whole session's car_data. Failures degrade to empty (drs/speed are optional).
+     *
+     * @return array<mixed>
+     */
+    private function fetchCarData(int $sessionKey, ?string $date): array
+    {
+        $anchor = ($date && ($t = strtotime($date)) !== false) ? $t : time();
+        $from   = gmdate('Y-m-d\TH:i:s', $anchor - 5) . 'Z';
+        $params = ['session_key' => $sessionKey, 'date' => '>=' . $from];
+        if ($date) {
+            $params['date'] = ['>=' . $from, '<=' . $date];
+        }
+
+        try {
+            return $this->openF1->get('car_data', $params);
+        } catch (Throwable $e) {
+            return [];
+        }
     }
 }

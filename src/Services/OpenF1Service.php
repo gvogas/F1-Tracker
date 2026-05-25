@@ -25,8 +25,9 @@ class OpenF1Service
     public function get(string $endpoint, array $params = []): array
     {
         $url = $this->baseUrl . '/' . ltrim($endpoint, '/');
-        if ($params) {
-            $url .= '?' . http_build_query($params);
+        $query = $this->buildQuery($params);
+        if ($query !== '') {
+            $url .= '?' . $query;
         }
 
         $attempt = 0;
@@ -65,6 +66,29 @@ class OpenF1Service
         throw new RuntimeException("OpenF1 rate-limited after retries for {$endpoint}");
     }
 
+    /**
+     * Build an OpenF1 query string. Comparison filters are expressed by giving a
+     * value a leading operator (e.g. ['date' => '>=2023-...']) and are rendered in
+     * OpenF1's native form `date>=2023-...` rather than `date=>=2023-...`. A field
+     * may also carry several filters via an array of operator-prefixed values
+     * (e.g. ['date' => ['>=A', '<=B']]). Plain values become `key=value`.
+     */
+    private function buildQuery(array $params): string
+    {
+        $parts = [];
+        foreach ($params as $key => $value) {
+            foreach (is_array($value) ? $value : [$value] as $v) {
+                $v = (string) $v;
+                if (preg_match('/^(<=|>=|<|>)(.*)$/s', $v, $m) === 1) {
+                    $parts[] = rawurlencode((string) $key) . $m[1] . rawurlencode($m[2]);
+                } else {
+                    $parts[] = rawurlencode((string) $key) . '=' . rawurlencode($v);
+                }
+            }
+        }
+        return implode('&', $parts);
+    }
+
     /** @return array{int, string, array<string, string>} [httpStatus, body, responseHeaders] */
     private function curlGet(string $url): array
     {
@@ -73,7 +97,9 @@ class OpenF1Service
         curl_setopt_array($ch, [
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_TIMEOUT        => $this->timeout,
+            CURLOPT_CONNECTTIMEOUT => 8,
             CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_ENCODING       => '', // accept gzip/deflate — large telemetry payloads
             CURLOPT_HTTPHEADER     => ['Accept: application/json'],
             CURLOPT_USERAGENT      => 'F1-Tracker/1.0',
             CURLOPT_HEADERFUNCTION => function ($handle, $header) use (&$responseHeaders): int {

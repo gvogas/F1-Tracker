@@ -11,17 +11,41 @@ var F1Utils = {
       .replace(/'/g, "&#039;");
   },
 
-  /* ===== Rate-limit backoff ===== */
+  /* ===== Rate-limit backoff =====
+     Repeated 429/503s within a minute escalate the wait exponentially (capped),
+     with jitter so multiple tabs don't retry in lockstep. A clean response after
+     things settle relaxes the escalation.
+  ===== */
   _backoffUntil: 0,
+  _backoffStreak: 0,
+  _lastBackoffAt: 0,
 
   isBackingOff: function () {
     return Date.now() < F1Utils._backoffUntil;
   },
 
   setBackoff: function (ms) {
-    ms = ms || 8000;
-    F1Utils._backoffUntil = Date.now() + ms;
-    console.warn("[F1Utils] Rate-limited — backing off for " + (ms / 1000) + "s");
+    var now = Date.now();
+    if (now - F1Utils._lastBackoffAt < 60000) {
+      F1Utils._backoffStreak = Math.min(F1Utils._backoffStreak + 1, 5);
+    } else {
+      F1Utils._backoffStreak = 1;
+    }
+    F1Utils._lastBackoffAt = now;
+
+    var base   = ms || 8000;
+    var factor = Math.pow(2, F1Utils._backoffStreak - 1); // 1, 2, 4, 8, 16
+    var wait   = Math.min(base * factor, 120000);          // cap at 2 min
+    wait      += Math.random() * Math.min(wait * 0.25, 2000);
+
+    F1Utils._backoffUntil = now + wait;
+    console.warn("[F1Utils] Rate-limited — backing off for " + Math.round(wait / 1000) + "s");
+  },
+
+  noteSuccess: function () {
+    if (Date.now() - F1Utils._lastBackoffAt > 15000) {
+      F1Utils._backoffStreak = 0;
+    }
   },
 
   /* ===== Safe AJAX wrapper =====
