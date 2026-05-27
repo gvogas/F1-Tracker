@@ -39,6 +39,11 @@ export async function openf1Get<T = unknown>(
   endpoint: string,
   params: QueryParams = {},
 ): Promise<T[]> {
+  if (process.env.DEMO_DATA === "1") {
+    const { demoFetch } = await import("@/lib/demo/generate");
+    return demoFetch<T>(endpoint, params);
+  }
+
   const qs = buildQuery(params);
   const url = `${BASE_URL}/${endpoint}${qs ? `?${qs}` : ""}`;
 

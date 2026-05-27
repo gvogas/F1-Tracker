@@ -1,95 +1,104 @@
-# F1 Tracker
+# F1 Live — Real-Time Timing & Track Map
 
-A live Formula 1 timing and stats web app powered by the [OpenF1 API](https://openf1.org) with an AI commentary layer via HuggingFace.
+A live Formula 1 **real-time data visualization** web app powered by the
+[OpenF1 API](https://openf1.org), with a speed-controlled race replay and a light
+AI commentary accent. Built for a hackathon — the centerpiece is a live timing
+tower and an animated track map.
+
+> Rebuilt on Next.js. The original PHP/Slim version is preserved under [`legacy/`](./legacy).
 
 ## Features
 
-- **Live dashboard** — real-time timing tower with positions, gaps, DRS, tyre compounds and sector splits
-- **Race replay** — scrub through any session with a 5× replay clock
-- **Leaderboard** — full session results with driver headshots and team colours
-- **Races** — full season calendar with past/upcoming race cards
-- **AI commentary** — live race commentary, tyre strategy analysis, race control summary and finish prediction powered by HuggingFace models
-- **Profile** — pick your favourite driver and team; highlighted everywhere in the app
+- **Live timing tower** — positions, gaps, intervals, DRS, tyre compounds, sector
+  splits and pit counts that reorder in real time with smooth FLIP animation.
+- **Track map** — cars ease around a circuit traced from live GPS telemetry, with
+  team colours, a gold ring on the leader and motion trails (HTML5 canvas).
+- **Race replay** — auto-replays a recent race with a play/pause/scrub clock at up
+  to 30× speed, so there's always motion. Switches to true-live when a session is on.
+- **AI commentary** — optional live commentary on the timing feed; degrades to a
+  placeholder when no token is configured (the visualization never depends on it).
+- **Favourite driver** — click a row to highlight your driver everywhere.
 
 ## Stack
 
 | Layer | Tech |
 |---|---|
-| Routing | Slim 4 |
-| Templates | Twig 3 |
-| DI | PHP-DI 7 |
-| PHP | 8.2+ |
-| Frontend | jQuery + vanilla JS |
-| Data | OpenF1 API (server-side proxy) |
-| AI | HuggingFace Inference API |
-| Cache | File-based, per-endpoint TTLs |
+| Framework | Next.js 15 (App Router) |
+| Language | TypeScript |
+| Styling | Tailwind CSS |
+| Animation | Framer Motion (tower) + Canvas 2D + requestAnimationFrame (map) |
+| Data | OpenF1 API (proxied through Next.js route handlers) |
+| AI | HuggingFace Inference (configurable, optional) |
+| Cache | In-memory, per-endpoint TTLs |
 
 ## Getting started
 
-**1. Clone and install**
 ```bash
-git clone https://github.com/gvogas/F1-Tracker.git
-cd F1-Tracker
-composer install
+npm install
+cp .env.example .env   # optional: add HF_TOKEN for AI commentary
+npm run dev            # http://localhost:3000
 ```
 
-**2. Configure environment**
+Open [http://localhost:3000](http://localhost:3000) and click **Open Live
+Dashboard**. It auto-selects a session (a live one if any, otherwise it replays a
+recent race) and starts animating.
+
+### Demo mode (offline / restricted networks)
+
+If the host can't reach `api.openf1.org` (e.g. a locked-down network or CI), run
+with synthetic data so the full visualization still works:
+
 ```bash
-cp .env.example .env
-```
-Edit `.env` and add your HuggingFace token (free at [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens)):
-```
-HF_TOKEN=hf_your_token_here
+DEMO_DATA=1 npm run dev
 ```
 
-**3. Run**
-```bash
-php -S localhost:8080
-```
+This fabricates a moving 20-car field and a circuit entirely server-side; no
+external calls are made. Real OpenF1 behaviour is unaffected when the flag is off.
 
-Open [http://localhost:8080](http://localhost:8080).
+### Configuration
+
+| Var | Purpose |
+|---|---|
+| `OPENF1_BASE_URL` | OpenF1 base URL (default `https://api.openf1.org/v1`). |
+| `DEMO_DATA` | `1` to serve synthetic data instead of calling OpenF1. |
+| `AI_PROVIDER` | `huggingface-router` (default), `huggingface-legacy`, or `none`. |
+| `AI_MODEL` | Model id for commentary. |
+| `AI_ROUTER_URL` | Chat-completions endpoint for the router provider. |
+| `HF_TOKEN` | HuggingFace token; without it, commentary shows a placeholder. |
 
 ## Project structure
 
 ```
-├── src/
-│   ├── Controllers/Api/   # JSON endpoints (/api/*)
-│   ├── Controllers/       # Page controllers (Twig)
-│   ├── Models/            # Typed DTOs (Meeting, Session, Driver, Weather)
-│   ├── Services/          # OpenF1, HuggingFace, Cache
-│   ├── Helpers/           # Data normalisation
-│   └── Middleware/        # JSON headers, security headers
-├── templates/             # Twig page templates
-├── core/                  # Shared JS (API client, tower UI, utils)
-├── features/              # Page-specific JS
-├── css/
-├── cache/                 # Runtime cache (gitignored)
-└── index.php              # Slim bootstrap + all routes
+app/
+  page.tsx                landing
+  dashboard/page.tsx      the live dashboard
+  api/*/route.ts          OpenF1 proxy + tower assembly + AI commentary
+lib/
+  openf1/client.ts        fetch client (operator-aware query, Retry-After backoff)
+  cache.ts                in-memory TTL cache
+  f1/                      assembleTower, format helpers, windows, normalize
+  demo/generate.ts        synthetic data for DEMO_DATA=1
+  ai/commentator.ts       isolated, env-configurable AI accent
+hooks/                    useReplayClock, useTowerFeed, useTrackData, …
+components/                TimingTower, TrackMap, ReplayControls, SessionPicker, …
+legacy/                    original PHP/Slim app (reference only)
 ```
 
 ## API endpoints
 
 | Method | Path | Description |
 |---|---|---|
-| GET | `/api/meetings` | Season meeting list |
-| GET | `/api/sessions` | Sessions for a meeting |
-| GET | `/api/drivers` | Driver list for a session |
-| GET | `/api/results` | Session results with driver info |
-| GET | `/api/tower` | Live timing tower snapshot |
-| GET | `/api/weather` | Latest weather for a session |
-| GET | `/api/laps` | Lap data |
-| GET | `/api/race-control` | Race control messages |
-| POST | `/api/ai/commentator` | Live race commentary (Mistral-7B) |
-| POST | `/api/ai/tyre-strategy` | Strategy analysis (Mistral-7B) |
-| POST | `/api/ai/race-control-explain` | Stewards summary (bart-large-cnn) |
-| POST | `/api/ai/performance` | Finish prediction (flan-t5-base) |
+| GET | `/api/meetings?year=` | Season meeting list |
+| GET | `/api/sessions?meeting_key=` | Sessions for a meeting |
+| GET | `/api/drivers?session_key=` | Driver list for a session |
+| GET | `/api/results?session_key=` | Session results with driver info |
+| GET | `/api/tower?session_key=[&date=ISO]` | Assembled timing tower (live or replay) |
+| GET | `/api/location?session_key=[&date=ISO]` | Car positions |
+| GET | `/api/track-outline?session_key=[&date=ISO]` | Downsampled circuit points |
+| GET | `/api/weather?session_key=` | Latest weather |
+| GET | `/api/race-control?session_key=` | Race control messages |
+| POST | `/api/ai/commentator` | Live commentary (`{ session_key, date? }`) |
 
-## Data
-
-All OpenF1 requests are proxied through PHP — no API calls from the browser. Responses are cached server-side:
-
-| Data | TTL |
-|---|---|
-| Tower, laps | 5 s |
-| Weather, race control | 30 s |
-| Meetings, sessions, drivers, results | 1 hour |
+Replay is pure timestamp windowing: the client advances a clock and passes `date`
+to `/api/tower` and `/api/location`, which filter OpenF1 by time. The tower serves
+its last good snapshot if upstream fails.
